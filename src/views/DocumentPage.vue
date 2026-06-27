@@ -1838,6 +1838,12 @@ export default {
       }
     })
 
+    watch(layout.isTOCMenuOpened, (val) => {
+      if (val) {
+        scrollCurrentTocItemIntoView()
+      }
+    })
+
     watch(breadcrumbEl, () => {
       updateMeasurements()
     })
