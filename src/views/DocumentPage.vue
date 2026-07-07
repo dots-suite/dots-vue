@@ -1876,14 +1876,14 @@ export default {
 
         const htmlTOC = document.querySelector('.toc-aside-is-opened > div.toc-area-aside.toc-content > aside > nav > nav')
         const currentLink = htmlTOC.querySelector('a.is-current')
+
         if (currentLink && htmlTOC) {
-          const containerRect = htmlTOC.getBoundingClientRect()
+          // const containerRect = htmlTOC.getBoundingClientRect()
           const linkRect = currentLink.getBoundingClientRect()
+          const windowHeight = window.innerHeight;
+
           htmlTOC.scrollTo({
-            top:
-              htmlTOC.scrollTop +
-              (linkRect.top - containerRect.top) -
-              htmlTOC.clientHeight / 2,
+            top: htmlTOC.scrollTop + linkRect.top - windowHeight / 2 + linkRect.height/ 2,
             behavior: 'smooth'
           })
         }
