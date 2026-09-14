@@ -18,11 +18,9 @@
               :title="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
               :aria-label="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
             >
-              <span class="burger-icon" :class="{ 'is-active': sidebarOpen }">
-                <span></span>
-                <span></span>
-                <span></span>
-              </span>
+              <SearchFilterIcon v-if="sidebarOpen" type="" :size="40" color="var(--fill-color)" />
+              <SearchFilterIcon v-else type="check" :size="40" color="var(--fill-color)" />
+
             </button>
 
             <div class="search-input-wrapper">
@@ -164,10 +162,12 @@ import CollectionHeader from '@/components/CollectionHeader.vue'
 import ResourcesList from '@/components/ResourcesList.vue'
 import SearchFacets from '@/components/SearchFacets.vue'
 import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
+import SearchFilterIcon from "@/assets/images/SearchFilterIcon.vue";
 
 export default {
   name: 'SearchPage',
   components: {
+    SearchFilterIcon,
     SearchFacets,
     ActiveSearchFilters,
     CollectionHeader,
@@ -1097,6 +1097,7 @@ tr td.chevron-up a::before {
 .search-form > .search-bar-row > .burger-menu-button {
   flex: 0 0 auto;
   height: 44px;
+  padding: 0;
 }
 
 .hide-filters-button {
