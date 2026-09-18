@@ -16,7 +16,7 @@
     :class="displayMode !== 'toc' ? `${displayMode}-mode` : 'toc-mode'"
   >
     <div
-      v-for="(item, index) in paginated"
+      v-for="item in paginated"
       :key="item.identifier"
       class="document-card collection-card-with-toc-component"
     >

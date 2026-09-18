@@ -21,7 +21,7 @@
     :class="displayMode !== 'toc' ? `${displayMode}-mode` : 'toc-mode'"
   >
     <div
-      v-for="(item, index) in paginated"
+      v-for="item in paginated"
       :key="item.identifier"
       class="document-card collection-toc-component"
     >
@@ -175,7 +175,7 @@
       <div v-if="expandedById[currCollection.identifier]">
         <ul class="tree">
           <template
-            v-for="(item, index) in componentTOC"
+            v-for="item in componentTOC"
             :key="item.identifier"
           >
             <li

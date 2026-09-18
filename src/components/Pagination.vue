@@ -81,6 +81,10 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 
+defineOptions({
+  name: 'DotsPagination'
+})
+
 const props = defineProps({
   modelValue: { type: Number, required: true },
   totalPages: { type: Number, required: true },
