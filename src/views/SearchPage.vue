@@ -476,6 +476,9 @@ export default {
         return result.buckets.map(bucket => ({
           ...bucket,
           identifier: bucket.resource_id || bucket.identifier || '—',
+          // The row link needs the project, which the route carries when
+          // VITE_APP_DOCUMENT_ROUTE_INCLUDE_PROJECT_ID is set (as in HomePage).
+          projectIdentifier: bucket.path_ids?.[0] ?? bucket.parent_id,
 
           hits: (bucket.hits || []).map(hit => {
             const normalizedHit = {
@@ -510,6 +513,7 @@ export default {
           ...item,
           ...item.fields,
           identifier: item.resource_id || item.identifier || '—',
+          projectIdentifier: item.path_ids?.[0] ?? item.parent_id,
           details: []
         }))
       }
