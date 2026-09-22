@@ -3,20 +3,42 @@
     ref="rootEl"
     class="search-facets"
   >
-    <div
-      class="filters-header-title"
-      @click="toggleAllFacets"
-    >
-      <span>Filtres</span>
-      <i
-        class="arrow"
-        :class="{ opened: allOpened }"
-      />
+    <div class="filters-header">
+      <button
+        type="button"
+        class="sidebar-toggle-btn is-opened"
+        title="Fermer les filtres"
+        aria-label="Fermer les filtres"
+        @click="$emit('toggle-sidebar')"
+      >
+        <SearchFilterIcon type="check" />
+      </button>
+
+      <div
+        class="filters-header-title"
+        @click="toggleAllFacets"
+      >
+        <span>Filtres</span>
+        <i
+          class="arrow"
+          :class="{ opened: allOpened }"
+        />
+      </div>
+
+      <button
+        v-if="hasActiveFilters"
+        type="button"
+        class="filters-reset-btn"
+        @click="$emit('clear-all')"
+      >
+        Réinitialiser
+      </button>
     </div>
 
     <div
       v-for="facet in orderedFacets"
       :key="facet.id"
+      :data-facet-id="facet.id"
       class="facet-box"
     >
       <div
@@ -150,6 +172,7 @@
 
 import { computed, nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import TemporalFacetSlider from './TemporalFacetSlider.vue'
+import SearchFilterIcon from '@/assets/images/SearchFilterIcon.vue'
 
 const props = defineProps({
 
@@ -191,8 +214,17 @@ const emit = defineEmits([
     'change-range',
     'reset-range',
     'reset-facet',
-    'remove-facet-value'
+    'remove-facet-value',
+    'toggle-sidebar',
+    'clear-all'
 ])//'apply-collections'
+
+// Same condition as the active filters banner, which hides its reset
+// control when there is nothing to reset.
+const hasActiveFilters = computed(() =>
+  props.activeFacets.length > 0 ||
+  Object.keys(props.ranges).length > 0
+)
 
 watch(
   () => props.ranges,
@@ -308,6 +340,28 @@ function updateDropdownSpacer() {
     dropdownSpacer.value = Math.max(0, Math.round(needed - rowGap))
 }
 
+// The value menu is absolutely positioned and pushes nothing: the spacer
+// above makes the room to reach it. When it is active, scrolling to the
+// very bottom frames the whole menu; otherwise scroll the minimum. Does
+// nothing on desktop, where the sidebar has no scroll of its own.
+function scrollDropdownIntoView() {
+    const dropdown = rootEl.value?.querySelector('.facet-dropdown')
+    if (!dropdown) return
+
+    const scroller = facetScroller(dropdown)
+    if (!scroller) return
+
+    if (dropdownSpacer.value) {
+        scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+        return
+    }
+
+    const overflow = dropdown.getBoundingClientRect().bottom +
+        DROPDOWN_BOTTOM_MARGIN - scroller.getBoundingClientRect().bottom
+
+    if (overflow > 0) scroller.scrollBy({ top: overflow, behavior: 'smooth' })
+}
+
 function observeDropdown() {
     if (!dropdownResizeObserver) return
     dropdownResizeObserver.disconnect()
@@ -321,6 +375,11 @@ watch(
       await nextTick()
       observeDropdown()
       updateDropdownSpacer()
+
+      // the spacer just changed: wait for it to render so scrollHeight
+      // accounts for its new height
+      await nextTick()
+      scrollDropdownIntoView()
   },
   { deep: true }
 )
@@ -371,12 +430,48 @@ function toggleAllFacets() {
 }
 
 
+// The last facet's expanded panel falls outside the frame: bring the whole
+// box back into the sidebar, and only when it actually scrolls, which is
+// the mobile case.
+function facetScroller(el){
+    for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+        const { overflowY } = getComputedStyle(node)
+        if (
+            (overflowY === 'auto' || overflowY === 'scroll') &&
+            node.scrollHeight > node.clientHeight
+        ) return node
+    }
+    return null
+}
+
+function scrollFacetIntoView(facetId){
+    const box = rootEl.value?.querySelector(`[data-facet-id="${facetId}"]`)
+    if (!box) return
+
+    const scroller = facetScroller(box)
+    if (!scroller) return
+
+    const boxRect = box.getBoundingClientRect()
+    const viewRect = scroller.getBoundingClientRect()
+    let delta = 0
+
+    if (boxRect.top < viewRect.top) {
+        delta = boxRect.top - viewRect.top
+    } else if (boxRect.bottom > viewRect.bottom) {
+        // never pushing the box's top out through the top of the frame
+        delta = Math.min(boxRect.bottom - viewRect.bottom, boxRect.top - viewRect.top)
+    }
+
+    if (delta) scroller.scrollBy({ top: delta, behavior: 'smooth' })
+}
+
 function toggleOpen(facetId){
     if (isOpen(facetId)) {
         emit('facet-close', facetId)
     }
     else {
         emit('facet-open', facetId)
+        nextTick(() => scrollFacetIntoView(facetId))
     }
 }
 
@@ -610,6 +705,68 @@ watch(
   font-family: "Barlow", sans-serif;
 }
 
+
+/* On mobile the sidebar is an overlay covering the active filters banner,
+   so its two controls are repeated here. */
+.filters-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.filters-header > .sidebar-toggle-btn,
+.filters-header > .filters-reset-btn {
+  display: none;
+}
+
+/* Same look as .clearall-btn in the active filters banner. */
+.filters-reset-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem .85rem;
+  background: none;
+  border: none;
+  border-radius: 20px;
+  font-family: "Barlow", sans-serif;
+  font-size: .85rem;
+  font-weight: 100;
+  color: #000;
+  cursor: pointer;
+}
+
+.filters-reset-btn:hover,
+.filters-reset-btn:focus-visible {
+  background: #b9192f;
+  border-color: #b9192f;
+  color: #fff;
+}
+
+@media screen and (max-width: 768px) {
+  /* The sidebar scrolls: the header stays reachable at the top. Negative
+     margins cancel .search-facets' side padding, or content would show
+     scrolling past in the gutters. */
+  .filters-header {
+    position: sticky;
+    top: 0;
+
+    /* above .facet-dropdown (z-index: 20), or the value menu scrolls over
+       the header */
+    z-index: 21;
+    margin: 0 -1rem;
+    padding: .75rem 1rem;
+    background: #fff;
+  }
+
+  .filters-header > .sidebar-toggle-btn {
+    display: inline-flex;
+  }
+
+  .filters-header > .filters-reset-btn {
+    display: inline-block;
+  }
+}
 
 .filters-header-title{
   font-size : 24px;

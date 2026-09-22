@@ -8,23 +8,13 @@
       :root-collection-identifier="rootCollectionId"
       :show-about="false"
     />
-    <div class = "sticky-search-header app-width-margin">
+    <div
+      ref="stickyHeaderEl"
+      class="sticky-search-header app-width-margin"
+    >
       <div class = "search-bar-row">
         <div class="tile is-child search-form">
           <div class="search-bar-row">
-            <button
-              class="button is-medium burger-menu-button"
-              @click="toggleSidebar"
-              :title="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
-              :aria-label="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
-            >
-              <span class="burger-icon" :class="{ 'is-active': sidebarOpen }">
-                <span></span>
-                <span></span>
-                <span></span>
-              </span>
-            </button>
-
             <div class="search-input-wrapper">
               <!-- Fulltext or Metadata search selector -->
               <div class="search-mode-wrapper">
@@ -86,6 +76,8 @@
               :facets-config="visibleFacets"
               :ranges="ranges"
               :temporal-facets="visibleTemporal"
+              :sidebar-open="sidebarOpen"
+              @toggle-sidebar="toggleSidebar"
               @remove-facet="removeActiveFacet"
               @remove-range="removeActiveRange"
               @clear-all="clearAllFilters"
@@ -123,6 +115,8 @@
             @reset-range="resetRange"
             @reset-facet="resetFacet"
             @remove-facet-value="removeActiveFacet"
+            @toggle-sidebar="toggleSidebar"
+            @clear-all="clearAllFilters"
           />
         </aside>
       </Transition>
@@ -154,7 +148,7 @@
 
 <script>
 
-import { computed, inject, onMounted, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
@@ -853,6 +847,29 @@ export default {
       executeSearches()
     }
 
+    // The sidebar sticks below the search header, whose height changes with
+    // the number of active filter tags: a fixed value would be wrong from
+    // the first filter, so measure it.
+    const stickyHeaderEl = ref(null)
+    let headerObserver = null
+
+    onMounted(() => {
+      if (!stickyHeaderEl.value) return
+
+      headerObserver = new ResizeObserver(([entry]) => {
+        document.documentElement.style.setProperty(
+          '--search-header-height',
+          `${Math.round(entry.contentRect.height)}px`
+        )
+      })
+      headerObserver.observe(stickyHeaderEl.value)
+    })
+
+    onBeforeUnmount(() => {
+      headerObserver?.disconnect()
+      document.documentElement.style.removeProperty('--search-header-height')
+    })
+
     onMounted(() => {
     })
 
@@ -895,6 +912,7 @@ export default {
       closeFacet,
       resetRange,
       resetFacet,
+      stickyHeaderEl,
       sidebarOpen,
       toggleSidebar,
     }
@@ -1097,23 +1115,22 @@ tr td.chevron-up a::before {
   align-items: flex-start !important;
   gap: 0;
   margin-top: 12px;
+  padding-left: 12px;
 }
-.search-form > .search-bar-row > .burger-menu-button {
-  flex: 0 0 auto;
-  height: 44px;
-}
-
 .hide-filters-button {
   background-color: transparent !important;
   box-shadow: none;
 }
 
-/* Sidebar des facettes (burger) */
+/* Sidebar des facettes */
+/* clip, not hidden: with overflow-x: hidden, overflow-y: visible computes
+   to auto, .page-body becomes a scroll container and the sidebar's sticky
+   no longer sticks to the viewport. */
 .page-body {
   display: flex;
   align-items: stretch;
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: visible;
 }
 
@@ -1123,6 +1140,13 @@ tr td.chevron-up a::before {
   box-sizing: border-box;
   padding: 0 0 0 0 !important;
   background: #fff;
+
+  /* align-self cancels .page-body's stretch, or the sidebar takes the
+     table's height and has nothing to stick within. No scroll of its own:
+     the list follows the page. */
+  position: sticky;
+  top: var(--search-header-height, 0px);
+  align-self: flex-start;
 }
 
 .sidebar-backdrop {
@@ -1151,41 +1175,6 @@ tr td.chevron-up a::before {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-}
-
-/* Bouton burger */
-.burger-menu-button {
-  background-color: transparent !important;
-  box-shadow: none;
-  width: 44px;
-  align-items: center;
-}
-
-.burger-icon {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 20px;
-  height: 14px;
-}
-
-.burger-icon span {
-  display: block;
-  height: 2px;
-  width: 100%;
-  background-color: #4a4a4a;
-  border-radius: 1px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.burger-icon.is-active span:nth-child(1) {
-  transform: translateY(6px) rotate(45deg);
-}
-.burger-icon.is-active span:nth-child(2) {
-  opacity: 0;
-}
-.burger-icon.is-active span:nth-child(3) {
-  transform: translateY(-6px) rotate(-45deg);
 }
 
 .search-bar-row {
@@ -1221,7 +1210,7 @@ tr td.chevron-up a::before {
 .search-form .input {
   width: 100%;
   border-radius: 0;
-  height: 44px;
+  height: calc(var(--button-size) * 1.1);
   box-shadow: none;
   padding-bottom: 6px;
   padding-top: 6px;
@@ -1324,8 +1313,8 @@ tr td.chevron-up a::before {
 
 /* SEARCH BUTTON */
 .search-submit {
-  width: 44px;
-  height: 44px !important;
+  width: calc(var(--button-size) * 1.1);
+  height: calc(var(--button-size) * 1.1) !important;
   margin-right: 12px;
   padding: 0;
   border: none;
@@ -1342,8 +1331,10 @@ tr td.chevron-up a::before {
 }
 
 /* optionnel: fusion visuelle */
+/* The search bar follows the app's buttons: 44px for --button-size at 40,
+   33px when it drops to 30 under 768px. */
 .search-mode-trigger {
-  height: 44px;
+  height: calc(var(--button-size) * 1.1);
   border-radius: 6px 0 0 6px;
 }
 
@@ -1861,6 +1852,12 @@ tr.row-details :deep(em),
   }
 }
 @media screen and (max-width: 768px) {
+  /* The mode selector is cramped: drop its side padding */
+  .search-mode-trigger {
+    padding: 0 8px;
+    gap: 4px;
+  }
+
   /* ===================================================================
      Filter SIDEBAR
      =================================================================== */

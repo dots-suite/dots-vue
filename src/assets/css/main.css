@@ -1055,6 +1055,48 @@ button.dots-button {
     }
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Facets sidebar toggle. Two states, like ul.breadcrumb-top > li > a:  */
+/* light at rest, filled when the panel is open. --icon-bg drives both  */
+/* the button's background and the icon's lens mask, so redefine it to  */
+/* match whatever backdrop the button sits on.                          */
+/* ------------------------------------------------------------------ */
+
+button.sidebar-toggle-btn {
+    --icon-bg: #fff;
+
+    box-sizing: border-box;
+    width: var(--button-size);
+    height: var(--button-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+
+    color: var(--fill-color);
+    background-color: var(--icon-bg);
+    border: var(--fill-color) solid 1px;
+    border-radius: var(--button-border-radius);
+    transition: background-color 0.2s ease;
+}
+
+button.sidebar-toggle-btn.is-opened {
+    --icon-bg: var(--fill-color);
+    color: #fff;
+}
+
+button.sidebar-toggle-btn:focus-visible {
+    outline: 2px solid #B9192F;
+    outline-offset: 2px;
+}
+
+button.sidebar-toggle-btn > .icon-wrapper {
+    width: 100%;
+    height: 100%;
+}
+
 /* ------------------------------------------------------------------ */
 /* Loading state, shown until the shell mounts. Self-contained: no     */
 /* collection config or theme is available yet.                        */

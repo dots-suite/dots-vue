@@ -68,15 +68,4 @@ const cssVars = {
   }
 }
 
-@media screen and (min-width: 1024px) {
-  :not(.is-notes-opened) > .icon-wrapper:hover {
-    color: #FFF;
-    background-color: var(--fill-color);
-
-    .note-no {
-      fill: #CCC;
-    }
-  }
-}
-
 </style>

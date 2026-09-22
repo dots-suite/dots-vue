@@ -50,23 +50,13 @@ const cssVars = {
   border-color: #e5e5e5;
 }
 
-.icon-wrapper.active,
-.icon-wrapper:hover {
+.icon-wrapper.active {
   color: #FFF;
   background-color: var(--fill-color);
 }
 
-.icon-wrapper.active:hover {
-  background-color: var(--bg);
-  color: var(--fill-color, var(--icon-text-color));
-}
-
-/* Prevents Hover state, replaced by active state */
+/* Touch: the press itself gives the feedback hover used to */
 @media (hover: none) {
-  .icon-wrapper:hover {
-    color: inherit;
-    background-color: inherit;
-  }
   .images-mode .icon-wrapper,
   .icon-wrapper:active {
     color: #FFF;

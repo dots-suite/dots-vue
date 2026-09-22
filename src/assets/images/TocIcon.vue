@@ -92,8 +92,7 @@ const cssVars = computed(() => ({
   background-color: #C3C3C3;
 }
 
-.is-opened > .icon-wrapper,
-.icon-wrapper:hover {
+.is-opened > .icon-wrapper {
   color: #FFF;
   background-color: var(--fill-color);
 }

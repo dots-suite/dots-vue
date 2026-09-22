@@ -2160,7 +2160,6 @@ export default {
 .controls-toggle .icon-wrapper {
   color: var(--fill-color);
 }
-.controls-toggle:hover .icon-wrapper,
 .controls-toggle[aria-expanded="true"] .icon-wrapper {
   color: #ffffff;
   background-color: var(--fill-color);

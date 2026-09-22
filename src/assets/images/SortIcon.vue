@@ -82,11 +82,6 @@ const cssVars = {
     background-color: var(--default-bg-color);
     color: #848484 !important;
   }
-
-  &:hover {
-    background-color: #848484 !important;
-    color: #FFFFFF !important;
-  }
 }
 
 .icon {

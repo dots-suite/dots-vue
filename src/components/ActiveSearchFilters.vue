@@ -8,10 +8,21 @@
 
       <button
         type="button"
+        class="sidebar-toggle-btn"
+        :class="{ 'is-opened': sidebarOpen }"
+        :title="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
+        :aria-label="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
+        @click="toggleSidebar"
+      >
+        <SearchFilterIcon type="check" />
+      </button>
+
+      <button
+        type="button"
         class="collapse-btn"
         @click="toggleCollapsed"
       >
-        <span class="active-filters-title">Filtres actifs</span>
+        <span class="active-filters-title">Filtres<span class="label-extra"> actifs</span></span>
         <i class="collapse-arrow" :class="{ opened: !collapsed }" />
       </button>
 <!-- supprimer tous les filtres version bouton -->
@@ -21,7 +32,7 @@
         class="clearall-btn"
         @click.stop="clearAll"
       >
-        Réinitialiser les filtres
+        Réinitialiser<span class="label-extra"> les filtres</span>
       </button>
 
     </div>
@@ -70,11 +81,24 @@
     </div>
   </div>
   <div v-else class="active-filters">
-    <span class="active-filters-title">Aucun filtre actif</span>
+    <span class="active-filters-empty">
+      <button
+        type="button"
+        class="sidebar-toggle-btn"
+        :class="{ 'is-opened': sidebarOpen }"
+        :title="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
+        :aria-label="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
+        @click="toggleSidebar"
+      >
+        <SearchFilterIcon type="check" />
+      </button>
+      <span class="active-filters-title">Aucun filtre actif</span>
+    </span>
   </div>
 </template>
 <script setup>
 import { computed, ref } from 'vue'
+import SearchFilterIcon from '@/assets/images/SearchFilterIcon.vue'
 
 const props = defineProps({
 
@@ -97,13 +121,20 @@ const props = defineProps({
   facetsConfig:{
     type:Array,
     default:()=>[]
+  },
+  // Facets sidebar state, owned by SearchPage: the button that opens and
+  // closes it replaced the burger of the search bar.
+  sidebarOpen:{
+    type:Boolean,
+    default:false
   }
 })
 
 const emit = defineEmits([
   'remove-facet',
   'remove-range',
-  'clear-all'
+  'clear-all',
+  'toggle-sidebar'
 ])
 
 // ajouts Charlie
@@ -111,6 +142,10 @@ const collapsed = ref(false)
 
 function toggleCollapsed(){
   collapsed.value = !collapsed.value
+}
+
+function toggleSidebar(){
+  emit('toggle-sidebar')
 }
 //
 const hasActiveFilters = computed(() => {
@@ -204,7 +239,7 @@ function clearAll(){
   top: 0;
   z-index: 20;
   background: #ffffff00;
-  padding: .75rem 1rem;
+  padding: .75rem 1rem .75rem 12px;
   border-bottom: 0 solid #e2e2e2;
   box-shadow: none;
   font-family: "Barlow", sans-serif !important;
@@ -214,7 +249,7 @@ function clearAll(){
   display: inline-flex;
   align-items: center;
   gap: 1rem;
-  height: 29px;
+  min-height: var(--button-size);
 }
 
 .active-filters-title {
@@ -223,6 +258,18 @@ function clearAll(){
   font-weight: 600 !important;
   padding-left: 0rem;
   color: #1a1a1a !important;
+}
+
+.active-filters-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The button's style lives in main.css, shared with the sidebar; only the
+   lens mask follows its backdrop, here .search-form's. */
+.sidebar-toggle-btn {
+  --icon-bg: #f0f0f0;
 }
 
 .collapse-btn {
@@ -278,6 +325,22 @@ function clearAll(){
   color: #1a1a1a;
 }
   */
+/* Under 768px the row no longer fits: the labels are shortened so the
+   button stays to their left. */
+@media screen and (max-width: 768px) {
+  .label-extra {
+    display: none;
+  }
+
+  .active-filters-header {
+    gap: .5rem;
+  }
+
+  .clearall-btn {
+    padding: .35rem .5rem;
+  }
+}
+
 .filter-tags {
   display:flex;
   flex-wrap:wrap;
@@ -342,7 +405,8 @@ function clearAll(){
   cursor: pointer;
 }
 
-.clearall-btn:hover {
+.clearall-btn:hover,
+.clearall-btn:focus-visible {
   background: #b9192f;
   border-color: #b9192f;
   color: #fff;
