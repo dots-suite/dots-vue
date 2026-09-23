@@ -19,6 +19,15 @@
     v-if="Object.keys(collConfig).length > 0 && collConfigReady"
     class="layout-grid-container"
   >
+    <!-- Safari iOS teinte sa barre d'etat avec la couleur qu'il
+         echantillonne en haut de la page. Il ignore a la fois
+         <meta name=theme-color> et les pseudo-elements : il faut un
+         vrai element, mesure a l appui. -->
+    <div
+      v-if="needsTopTint"
+      class="top-tint"
+      aria-hidden="true"
+    />
     <app-navbar
       class="layout-navbar"
       :key="currCollection"
@@ -152,6 +161,13 @@ export default {
       return routeDisplayName
     })
 
+    // The two routes whose navbar stays in the flow, leaving nothing
+    // coloured at the top once scrolled. Search is a CustomPage, so
+    // routeNameCssClass holds its customPage param, hence 'search'.
+    const needsTopTint = computed(
+      () => ['document', 'search'].includes(routeNameCssClass.value)
+    )
+
     const appConfig = ref({})
     const rootCollConfig = ref({})
     const projectCollConfig = ref({})
@@ -281,6 +297,26 @@ export default {
       }
     }
 
+    // Kept for the browsers that honour theme-color, Chrome on Android
+    // among them; Safari 26 ignores it. --fill-color is per collection,
+    // set by the custom CSS, so read it back after each injection
+    // rather than hardcoding a colour.
+    const syncThemeColor = () => {
+      const fill = getComputedStyle(document.documentElement)
+        .getPropertyValue('--fill-color')
+        .trim()
+
+      if (!fill) return
+
+      let meta = document.querySelector('meta[name="theme-color"]')
+      if (!meta) {
+        meta = document.createElement('meta')
+        meta.name = 'theme-color'
+        document.head.appendChild(meta)
+      }
+      meta.content = fill
+    }
+
     const getCustomCss = async () => {
       if (collConfig.value.collectionCustomCss) {
         const appCssConfs = Object.fromEntries(Object.entries(import.meta.glob('confs/**/*.customCss.css', { eager: false, query: '?raw' })).map(([key, value]) => {
@@ -303,6 +339,8 @@ export default {
           document.head.appendChild(el)
         }
       } else removeCustomCss()
+
+      syncThemeColor()
     }
     const removeCustomCss = () => {
       const styleTags = [...document.querySelectorAll('style')]
@@ -647,6 +685,7 @@ export default {
     )
 
     onMounted(() => {
+      syncThemeColor()
       window.addEventListener('scroll', onScroll)
     })
 
@@ -668,6 +707,7 @@ export default {
       projectCollConfig,
       collConfig,
       routeNameCssClass,
+      needsTopTint,
       breadCrumb,
       scrollTopIsVisible,
       scrollToTop

@@ -2222,10 +2222,10 @@ export default {
   & > aside > nav {
     position: sticky;
     top: 80px;
-    height: calc(100vh - 81px); /* 81px = sticky header height */
+    height: calc(100dvh - 81px); /* 81px = sticky header height */
     padding-bottom: 20px;
       & > nav {
-        height: 100%;
+        height: calc(100dvh - 100px);
         overflow-y: auto;
       }
   }
@@ -2238,9 +2238,9 @@ export default {
 
 .mirador-view {
   position: relative;
-  height: calc(100vh - 80px);
+  height: calc(100dvh - 80px);
   min-height: 80vh;
-  max-height: 100vh;
+  max-height: 100dvh;
   max-width: calc(100vw - 20px);
 }
 
@@ -3333,9 +3333,9 @@ a.pb {
   }
 
   .mirador-view {
-    height: calc(100vh - 170px);
+    height: calc(100dvh - 170px);
     min-height: 80vh;
-    max-height: 100vh;
+    max-height: 100dvh;
   }
 
   .text-and-images-mode .document-views .mirador-view {
@@ -3501,7 +3501,17 @@ a.pb {
 
   .toc-aside-is-opened .toc-area-aside {
     & > aside > nav {
-      height: calc(100vh - 45px); /* 45px = mobile sticky header height */
+      height: calc(100dvh - 45px); /* 45px = mobile sticky header height */
+      @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+        height: calc(100dvh - 200px);
+      }
+      padding-bottom: 20px;
+      & > nav {
+        @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+          height: calc(100dvh - 200px);
+        }
+        overflow-y: auto;
+      }
     }
   }
 
@@ -3541,6 +3551,21 @@ a.pb {
 }
 
 @media screen and (max-width: 640px) {
+  /* .top-tint covers the first 6 pixels of the screen, leaving 2px above
+     the buttons against 8 below. Give them back where they are eaten,
+     under the same guard as the strip: elsewhere it does not exist and
+     these offsets would only shift the banner. */
+  @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+    .navigation-row-top-container {
+      padding-top: 14px;
+    }
+
+    /* sticky: offset its `top`, not its padding (see SearchPage) */
+    .navigation-row {
+      top: 6px;
+    }
+  }
+
 
   .several-parent {
     flex-direction: column;

@@ -1868,8 +1868,8 @@ tr.row-details :deep(em),
     flex: none;
     width: 85vw;
     max-width: 440px;
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     z-index: 40;
     box-shadow: 2px 0 16px rgba(0, 0, 0, .25);
     overflow-y: auto;
@@ -1911,6 +1911,16 @@ tr.row-details :deep(em),
   }
 }
 @media screen and (max-width: 640px) {
+  /* The header sticks below .top-tint rather than under it. Offset its
+     `top`, not its padding: a padding would show before it sticks too, as
+     white under the search bar. Same guard as the strip: elsewhere it does
+     not exist and the offset would leave a transparent gap. */
+  @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+    .sticky-search-header {
+      top: 6px;
+    }
+  }
+
   .table thead th {
     padding-left: 10px;
   }
@@ -1925,6 +1935,15 @@ tr.row-details :deep(em),
   }
   tr.row-infos > td:nth-child(8) {
     right: 0;
+  }
+}
+
+
+/* Safari iOS zooms in when focusing a field whose font drops below 16px,
+   and never zooms back out. Raise it, on iOS only. */
+@supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  .sliders input[type="number"].year {
+    font-size: 16px;
   }
 }
 

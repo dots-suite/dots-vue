@@ -937,4 +937,13 @@ watch(
   flex: none;
 }
 
+
+/* Safari iOS zooms in when focusing a field whose font drops below 16px,
+   and never zooms back out. Raise it, on iOS only. */
+@supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  .facet-input {
+    font-size: 16px;
+  }
+}
+
 </style>

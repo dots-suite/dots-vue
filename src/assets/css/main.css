@@ -456,11 +456,20 @@ table td:not([align]), table th:not([align]) {
 }
 .layout-main {
     grid-area: main;
-    min-height: calc(100vh - 250px);
+
+    /* On iOS, 100vh is the height with the toolbar hidden, so the page
+       overshoots by that much. dvh follows the height actually visible. */
+    min-height: calc(100dvh - 250px);
 }
 .layout-footer {
     grid-area: footer;
     overflow: hidden;
+}
+
+/* Inert outside mobile, where no browser bar borrows the page's top
+   colour. */
+.top-tint {
+    display: none;
 }
 .layout-grid-container {
     display: grid;
@@ -961,6 +970,27 @@ a.noteref:focus {
         margin: auto;
         width: 60%;
         text-align: center;
+    }
+
+    /* Safari 26 dropped <meta name=theme-color> and samples instead the
+       background-color of fixed or sticky elements near the viewport
+       edges: 3px from the edge, 80% wide and 3px tall are the documented
+       thresholds, and pseudo-elements do not count. Measured on iPhone,
+       4px is not enough and 6px is. The strip covers the first six pixels
+       of whatever sticks below; reserving that height at page level
+       instead reveals a white line on fast scroll, so the eaten margins
+       are given back locally. @supports keeps all of it to iOS. */
+    @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+        .top-tint {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background-color: var(--fill-color);
+            z-index: 30;
+        }
     }
 
     .layout-navbar:not(.document, .search) {

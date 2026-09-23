@@ -406,6 +406,14 @@ export default {
   .footer > .columns > .column {
     padding: 30px var(--mobile-margin);
   }
+
+  /* Safari iOS re-expands its toolbar when scrolling stops, pushing the
+     end of the footer out of view. 30px + 50 to keep it reachable. */
+  @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
+    .footer > .columns > .column {
+      padding-bottom: 80px;
+    }
+  }
   .footer > .columns > .column.left-column {
     flex: auto;
   }

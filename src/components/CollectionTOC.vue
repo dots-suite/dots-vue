@@ -1091,6 +1091,8 @@ export default {
 }
 
 button.toc-toggle {
+  --icon-bg: transparent;
+
   /* remove default button behavior */
   appearance: none;
   -webkit-appearance: none;
@@ -1452,6 +1454,14 @@ button.toc-toggle {
 .mixed-mode.resources-grid {
   display: flex;
   flex-direction: column;
+}
+
+/* With no colour of its own the caret inherits the <button>'s, which
+   Safari iOS paints system blue where others paint it black. TocArrows
+   cannot help: its fgColor defaults to var(--icon-fg), a variable defined
+   nowhere. Hence the hardcoded black. */
+:deep(button.toc-toggle svg) {
+  color: #000000;
 }
 
 .resource-icon,
