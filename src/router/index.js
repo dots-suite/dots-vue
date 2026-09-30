@@ -101,13 +101,12 @@ if (isDocProjectIdIncluded) {
       if (documentArea) {
 
         const topNavBar = document.querySelector('.layout-navbar:first-child');
-        const topNavBarHeight = topNavBar.offsetHeight;
+        const topNavBarHeight = ! topNavBar ? 0 : topNavBar.offsetHeight;
 
         const navTopContainer = document.getElementById('navigation-row-top-container');
         const navTopContainerHeight = ! navTopContainer ? 0 : navTopContainer.offsetHeight;
 
         const totalHeaderHeight = navTopContainerHeight + topNavBarHeight;
-
 
         if (documentScroll >= totalHeaderHeight) {
           // If window scroll is beyond sticky navigation bar, scroll the top of the document under the sticky menu
