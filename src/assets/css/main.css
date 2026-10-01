@@ -82,10 +82,6 @@ body {
         font-style: inherit;
         font-weight: inherit;
     }
-
-    p {
-        margin-bottom: 0.5em;
-    }
 }
 
 /* Styles for Document homepage */
