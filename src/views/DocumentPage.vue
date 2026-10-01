@@ -2253,27 +2253,6 @@ export default {
   padding: 40px 10% 120px;
 }
 
-/* cf tei.css */
-.document-views .text-view > * teiheader,
-.document-views .text-view > * body {
-  margin-top: 40px;
-  margin-left: auto;
-  margin-right: auto;
-  width: 80%;
-}
-
-.document-views .text-view > * body {
-  padding-bottom: 80px;
-}
-
-.toc-aside-is-opened {
-  .document-views .text-view > * teiheader,
-  .document-views .text-view > * body {
-    width: 100%;
-    margin-right: 0 !important;
-  }
-}
-
 .images-mode .document-views,
 .text-and-images-mode .document-views {
   margin-right: 50px;
@@ -2943,13 +2922,6 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
   .navigation-document::after {
     width: 100vw;
     left: -20px;
-  }
-
-  .document-views .text-view > * teiheader,
-  .document-views .text-view > * body {
-    width: auto;
-    margin-left: 0;
-    margin-right: 0;
   }
 
   .toc-aside-is-opened #aside {
