@@ -2,7 +2,7 @@
   <div class="document wrapper">
     <div
       class="row"
-      :class="currentLevelIndicator === 'renderToc' ? 'remove-bottom-padding' : ''"
+      :class="currentLevelIndicator === 'renderToc' ? 'dots-ui' : ''"
     >
       <Suspense @resolve="scrollTo()">
         <component :is="customDocument" />
@@ -40,8 +40,8 @@
     <!-- For example : to be able to have a TOC on Collection ENCPOS, edited at the full position level (0) -->
     <div
       v-else-if="!currentLevelIndicator && currentLevel === editorialLevel && editorialLevel === 0 && documentType === 'Collection'"
-      id="dots-ui article"
-      class="row bottom-toc"
+      id="article"
+      class="dots-ui row bottom-toc"
     >
       <TOC
         :is-doc-project-id-included="isDocProjectIdInc"
@@ -665,27 +665,6 @@ export default {
 }
 </script>
 
-<!--<style src="@/assets/css/html.css" id="document-html-css">-->
-<!--.wrapper {-->
-<!--  display: flex;-->
-<!--  flex-direction: row;-->
-<!--}-->
-
-<!--header {-->
-<!--  clear: both;-->
-<!--  padding: 1ex;-->
-<!--  border: dashed #ccc 1px;-->
-<!--  -webkit-border-radius: 1ex;-->
-<!--  -moz-border-radius: 1ex;-->
-<!--  border-radius: 1ex;-->
-<!--}-->
-<!--.bottom-toc {-->
-<!--  padding: 0 10% 10% 120px;-->
-<!--  border-bottom: 1px dotted #ffffff;-->
-<!--  min-height: 100%;-->
-<!--}-->
-<!--</style>-->
-<style src="@/assets/css/postprod.css" />
 <style scoped>
 
 :deep(mark.search-highlight) {

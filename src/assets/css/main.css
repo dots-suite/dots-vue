@@ -82,6 +82,80 @@ body {
         font-style: inherit;
         font-weight: inherit;
     }
+
+    p {
+        margin-bottom: 0.5em;
+    }
+}
+
+/* Styles for Document homepage */
+.dots-ui {
+
+    .fileDesc > * {
+        margin-bottom: 10px;
+    }
+
+    .byline {
+        margin: 25px 0 90px;
+    }
+
+    .fileDesc {
+        margin-bottom: 40px;
+    }
+
+    .fileDesc h1 {
+        padding: 0;
+        margin-bottom: 30px;
+        font-family: var(--font-primary), sans-serif;
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1.2;
+        color: var(--document-text-color);
+        text-transform: none;
+        text-align: left;
+    }
+
+    .fileDesc a {
+        border-bottom: dotted 1px #999;
+        color: #336;
+    }
+
+    .fileDesc > .titleStmt,
+    .fileDesc p,
+    .byline {
+        text-align: left;
+    }
+
+    .fileDesc p.author,
+    .byline .docAuthor {
+        font-family: var(--font-serif), serif;
+        font-size: var(--font-default-size);
+        font-variant: unset;
+        line-height: 1.6;
+        color: var(--fill-color);
+        text-transform: none;
+    }
+
+    .sourceDesc {
+        & head,
+        & trailer,
+        & label {
+            font-family: var(--font-primary), sans-serif;
+            font-weight: 500;
+            font-size: var(--font-default-size);
+            font-variant: none;
+            line-height: 1.4;
+            color: var(--document-text-color);
+            text-shadow: none;
+            text-transform: none;
+        }
+    }
+
+    .availability, .editionStmt, .publicationStmt, .sourceDesc, .speaker, .stage {
+        font-family: var(--font-primary), sans-serif;
+        font-size: var(--font-small-size);
+    }
+
 }
 
 .container {
