@@ -223,17 +223,6 @@ function clearAll(){
 </script>
 <style scoped>
 
-
-/*
-  NOTE : cette page peut aussi afficher un document (Document.vue), qui
-  importe des feuilles de styles globales et non scopées (tei.css,
-  postprod.css). Ces styles restent injectés dans <head> pour le reste de la
-  session même après être revenu sur la recherche (pas de rechargement en
-  SPA), et peuvent contenir des règles génériques qui affectent la
-  typographie ici. En attendant de corriger ces fichiers à la source, on fixe
-  explicitement la police/taille/poids des libellés ci-dessous (avec
-  !important) pour que ce composant reste correct quoi qu'il arrive.
-*/
 .active-filters {
   position: sticky;
   top: 0;
