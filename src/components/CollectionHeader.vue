@@ -166,6 +166,13 @@ export default {
     const rootCollectionId = computed(() => props.rootCollectionIdentifier)
 
     const isAboutOpened = ref(false)
+    watch(
+      () => [collectionId.value, collConfig.value?.homePageSettings?.pageHeader?.aboutOpenState],
+      ([, aboutOpenState]) => {
+        isAboutOpened.value = aboutOpenState === true
+      },
+      { immediate: true }
+    )
 
     const appRootUrl = ref(`${import.meta.env.VITE_APP_APP_ROOT_URL}`)
     const normalisedBaseUrl = (baseURL) => {
