@@ -23,25 +23,17 @@
             </div>
           </div>
           <div class="column logos">
-            <div class="logo-institutions">
+            <div v-if="footLogos.length" class="logo-institutions">
               <a
+                v-for="logo in footLogos"
+                :key="logo.key"
                 target="_blank"
-                href="https://www.chartes.psl.eu/"
+                :href="logo.href"
               >
                 <img
-                  class="enc-logo"
-                  alt="Logo de l'École nationale des chartes"
-                  src="@/assets/images/logo_enc_white.svg"
-                />
-              </a>
-              <a
-                target="_blank"
-                href="https://projet.biblissima.fr/fr"
-              >
-                <img
-                  class="biblissima-logo"
-                  alt="Logo de Biblissima+"
-                  src="@/assets/images/logo_biblissima_footer_white.png"
+                  :class="['footer-logo', `${logo.key}-logo`]"
+                  :alt="logo.alt"
+                  :src="logo.src"
                 />
               </a>
             </div>
@@ -96,7 +88,19 @@
   </footer>
 </template>
 <script>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+
+const defaultImages = import.meta.glob('../assets/images/logo*.{svg,png}', { import: 'default', eager: true })
+const confImages = import.meta.glob('confs/*/assets/images/*.*', { import: 'default', eager: true })
+
+const findImage = (images, suffix) => Object.entries(images).find(([path]) => path.endsWith(suffix))?.[1]
+
+const resolveLogoUrl = (imgName, collectionId) => {
+  if (imgName.startsWith('http')) return imgName
+  return findImage(confImages, `/${collectionId}/assets/images/${imgName}`)
+    || findImage(confImages, `/default/assets/images/${imgName}`)
+    || findImage(defaultImages, `/${imgName}`)
+}
 
 export default {
   name: 'AppFooter',
@@ -142,8 +146,22 @@ export default {
       currCollection.value = newProps.currentCollection
     })
 
+    const footLogos = computed(() => Object.entries(props.footerSettings.footerLogos || {})
+      .filter(([, logo]) => logo && logo.imgName)
+      .map(([key, logo]) => ({
+        key,
+        href: logo.href,
+        alt: logo.alt || '',
+        src: resolveLogoUrl(logo.imgName, props.collectionIdentifier)
+      }))
+      .filter(logo => {
+        if (!logo.src) console.warn(`AppFooter.vue footer logo "${logo.key}" not found`)
+        return logo.src
+      }))
+
     return {
       currCollection,
+      footLogos,
       footTitle,
       footSubtitles,
       footDescription
@@ -332,7 +350,7 @@ export default {
         justify-content: center;
         align-items: center;
         vertical-align: center;
-        margin: 10px;
+        margin: 10px 0 10px 10px;
         border-bottom: none;
         color: #FFFFFF;
       }
@@ -350,13 +368,29 @@ export default {
   }
 }
 
-.enc-logo {
-  width: auto;
-  height: 50px;
-}
-.biblissima-logo {
-  width: 320px;
+.footer-logo {
+  width: 250px;
   height: auto;
+}
+
+@media screen and (min-width: 1321px) {
+  .footer .logos > .logo-institutions {
+    justify-content: center;
+  }
+  .footer .columns:has(> .column.description) > .logos {
+    align-items: stretch;
+  }
+  .footer .columns:has(> .column.description) > .row.links {
+    column-gap: 20px;
+
+    & > .footer-links,
+    & > .logo {
+      flex: 1 1 0;
+    }
+    & > .footer-links {
+      white-space: nowrap;
+    }
+  }
 }
 
 @media screen and (min-width: 1300px) {
@@ -393,6 +427,9 @@ export default {
   .footer .logos {
     align-items: flex-start;
     margin-bottom: 20px;
+  }
+  .footer .column.description + .logos {
+    margin-top: 20px;
   }
   .footer .logos > .logo {
     justify-content: flex-start;
@@ -435,13 +472,17 @@ export default {
     justify-content: center;
     align-items: center;
 
-    img {
-      max-width: 200px;
+    .logo-institutions {
+      justify-content: center;
+      width: 100%;
     }
   }
 
   .footer > .columns > .column.right-columns > .columns .row.links {
     margin-top: 30px;
+  }
+  .footer .column.description + .logos {
+    margin-top: 50px;
   }
   .footer > .columns > .column.right-columns > .columns > .column.logos > .logo,
   .footer > .columns > .column.right-columns > .columns .row.links {
@@ -455,9 +496,6 @@ export default {
 }
 
 @media screen and (max-width: 768px) {
-  .enc-logo {
-    height: 40px;
-  }
   .dots-logo {
     height: 40px;
   }
@@ -467,12 +505,13 @@ export default {
   .footer .logos {
     width: 100%;
     margin: 20px 0;
-
-    .logo-institutions {
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-    }
+  }
+  .footer .logos .logo-institutions {
+    flex-direction: column;
+    align-items: center;
+  }
+  .footer .row.links > .logo {
+    flex-basis: 100%;
   }
 }
 </style>
