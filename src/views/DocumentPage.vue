@@ -1259,7 +1259,9 @@ export default {
     const setBreadcrumbs = async () => {
       const ancestors = await getAncestors(currentItem.value, collConfig.value.excludeCollectionIds || [])
 
-      const currentItemId = hash.value ? hash.value : refId.value ? refId.value : resourceId.value
+      /* Some hash are not fragments but internal editor links, do not use them to build breadcrumb */
+      const hashIsTocItem = hash.value && flatTOC.value.some(item => item.identifier === hash.value)
+      const currentItemId = hashIsTocItem ? hash.value : refId.value ? refId.value : resourceId.value
 
       function findAncestors (item, directory) {
         if (item.parent === null) return [item]
@@ -1780,7 +1782,7 @@ export default {
           getNewRefId()
           isLoading.value = true
           if (newRoute.hash && newRoute.hash.length > 0) {
-            hash.value = newRoute.hash
+            hash.value = newRoute.hash.replace('#', '')
             scrollTo()
           }
         } else if (newRoute && oldRoute && newRoute.params.id === oldRoute.params.id) {
