@@ -41,7 +41,19 @@
       "footerTitle": "Titre",
       "footerSubtitles": [
       ],
-      "footerDescription": "Développé par la Mission projets numériques de l'École nationale des chartes – PSL avec le soutien de Biblissima+. Biblissima+ bénéficie d’une aide de l'Etat gérée par l'ANR au titre du Programme d’investissements d’avenir intégré à France 2030, portant la référence ANR-21-ESRE-0005."
+      "footerDescription": "Développé par la Mission projets numériques de l'École nationale des chartes – PSL avec le soutien de Biblissima+. Biblissima+ bénéficie d’une aide de l'Etat gérée par l'ANR au titre du Programme d’investissements d’avenir intégré à France 2030, portant la référence ANR-21-ESRE-0005.",
+      "footerLogos": {
+        "enc": {
+          "imgName": "logo_enc_white.svg",
+          "href": "https://www.chartes.psl.eu/",
+          "alt": "Logo de l'École nationale des chartes"
+        },
+        "biblissima": {
+          "imgName": "logo_biblissima_footer_white.png",
+          "href": "https://projet.biblissima.fr/fr",
+          "alt": "Logo de Biblissima+"
+        }
+      }
     },
     "tableOfContentsSettings": {
       "tableOfContentDepth": 5,
