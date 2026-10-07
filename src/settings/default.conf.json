@@ -35,6 +35,7 @@
         "cardCollectionPerPage": 3,
         "logo": "DotsLogo.vue",
         "browseButtonText": "Browse the collection",
+        "singleResourceButtonText": "Open the document",
         "openState": false
       }
     },

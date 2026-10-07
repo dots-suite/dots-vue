@@ -138,22 +138,25 @@
 
   <div
     v-if="(displayMode === 'toc')"
-    :class="`collection-toc-area ${expandedById[currCollection.identifier] ? 'expanded': ''} toc-mode`"
+    :class="`collection-toc-area ${expandedById[currCollection.identifier] && !singleResource ? 'expanded': ''} toc-mode${singleResource ? ' single-resource' : ''}`"
   >
+    <button
+      v-if="(displayMode === 'toc' && lvl < 2 && singleResource)"
+      type="button"
+      class="collection-toc-area-header single-resource"
+      @click="openSingleResource"
+      @auxclick="openSingleResource"
+    >
+      <span class="collBrowseButton">
+        {{ singleResourceBttnTxt }}
+      </span>
+    </button>
     <div
-      v-if="(displayMode === 'toc' && lvl < 2)"
+      v-else-if="(displayMode === 'toc' && lvl < 2)"
       class="collection-toc-area-header"
       @click.prevent="toggleExpanded(currCollection)"
     ><!-- && rootCollectionId === currCollection.identifier -->
       <a
-        v-if="componentTOC.length === 1 && (componentTOC[0].type === 'Resource' || componentTOC[0]['@type'] === 'Resource')"
-        href="#"
-        class="collBrowseButton"
-      >
-        Accéder au document
-      </a>
-      <a
-        v-else
         href="#"
         class="collBrowseButton"
       >
@@ -166,7 +169,7 @@
       />
     </div>
     <div
-      v-if="displayMode === 'toc'"
+      v-if="displayMode === 'toc' && !singleResource"
       class="menu"
       :class="expandedById[currCollection.identifier] ? 'expanded': ''"
     >
@@ -432,6 +435,10 @@ export default {
       props.collectionConfig?.homePageSettings?.listSection?.browseButtonText
     )
 
+    const singleResourceBttnTxt = computed(() =>
+      props.collectionConfig?.homePageSettings?.listSection?.singleResourceButtonText
+    )
+
     const displayOpt = computed(() =>
         props.applicationConfig?.homePageSettings?.listSection?.displayMode?.length > 0
         ? props.applicationConfig.homePageSettings.listSection.displayMode
@@ -443,6 +450,12 @@ export default {
 
     // TOC DATA
     const componentTOC = ref([...props.toc])
+
+    const singleResource = computed(() =>
+      componentTOC.value.length === 1 && (componentTOC.value[0].type === 'Resource' || componentTOC.value[0]['@type'] === 'Resource')
+        ? componentTOC.value[0]
+        : null
+    )
 
     // IMAGES
     /* Helpers */
@@ -883,6 +896,15 @@ export default {
       return to ? router.resolve(to).href : null
     }
 
+    // A button has no href: open a new tab by hand on Ctrl/Cmd/Shift-click and middle click
+    const openSingleResource = (event) => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) {
+        window.open(getHref(singleResource.value), '_blank')
+        return
+      }
+      goToPage(singleResource.value, event)
+    }
+
     onMounted(async () => {
       //await nextTick()
       const observer = new ResizeObserver(entries => {
@@ -977,9 +999,12 @@ export default {
       appConfig,
       collConfig,
       browseBttnTxt,
+      singleResourceBttnTxt,
       toggleExpanded,
       collectionImages,
       expandedById,
+      singleResource,
+      openSingleResource,
       selectedParent,
       componentTOC,
       textEls,
@@ -1011,6 +1036,41 @@ export default {
   width: 100%;
   padding-top: 25px;
   padding-bottom: 25px;
+}
+
+.collection-toc-area.single-resource {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 70%;
+  margin-top: -30px;
+  margin-bottom: 60px;
+}
+
+.collection-toc-area-header.single-resource {
+  align-self: flex-start;
+  width: auto;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 45px;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+
+  & > .collBrowseButton {
+    font-family: var(--font-primary), sans-serif;
+    font-weight: 700;
+    font-size: calc(var(--font-default-size) * 1.25);
+    color: var(--fill-color);
+  }
+
+  &:hover {
+    background-color: var(--default-bg-hover-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  }
 }
 
 .collection-toc-area {
@@ -1113,6 +1173,14 @@ button.toc-toggle {
 }
 
 @media screen and (max-width: 768px) {
+  .collection-toc-area.single-resource {
+    width: 100%;
+  }
+
+  .collection-toc-area-header.single-resource {
+    align-self: center;
+    padding: 20px;
+  }
 
   .collection-toc-area {
     & .tree li {
@@ -1687,6 +1755,10 @@ input[type=number] {
 }
 
 @media screen and (max-width: 640px) {
+  .toc-mode .collection-toc-area-header.single-resource {
+    padding: 20px;
+  }
+
 
   .card-mode .collection-metadata-author-date-title,
   .card-mode .collection-description {
