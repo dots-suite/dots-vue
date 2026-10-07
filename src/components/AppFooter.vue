@@ -350,7 +350,7 @@ export default {
         justify-content: center;
         align-items: center;
         vertical-align: center;
-        margin: 10px 0 10px 10px;
+        margin: 0 0 0 10px;
         border-bottom: none;
         color: #FFFFFF;
       }
@@ -358,7 +358,7 @@ export default {
       .dots-logo {
         display: inline-block;
         width: 70px;
-        height: 70px;
+        height: 40px;
         background: url(../assets/images/logo_dots.png) center / contain no-repeat;
         &:hover {
           background: url(../assets/images/dots-logo-retro.drawio.svg) center / contain no-repeat;
@@ -373,12 +373,55 @@ export default {
   height: auto;
 }
 
+@media screen and (min-width: 1025px) {
+  .footer > .columns > .column.right-columns {
+    display: flex;
+    flex-direction: column;
+
+    & > .columns {
+      flex: 1 0 auto;
+      align-content: space-between;
+    }
+  }
+  .footer .row.links {
+    margin-top: auto;
+  }
+}
+
+@media screen and (min-width: 1025px) and (max-width: 1320px) {
+  .footer .row.links {
+    flex: 0 0 auto;
+  }
+}
+
+/* Keep .row.links below the last line of the left column: the left column gets
+   a bottom padding of the links row height (40px, or 82px once "Powered by"
+   wraps under the links) plus a 20px gap */
+@media screen and (min-width: 1120px) {
+  .footer .title-container {
+    padding-bottom: 60px;
+  }
+  .footer .row.links {
+    flex-wrap: nowrap;
+    column-gap: 30px;
+  }
+}
+
+@media screen and (min-width: 1025px) and (max-width: 1119px) {
+  .footer .title-container {
+    padding-bottom: 102px;
+  }
+}
+
 @media screen and (min-width: 1321px) {
   .footer .logos > .logo-institutions {
     justify-content: center;
   }
   .footer .columns:has(> .column.description) > .logos {
     align-items: stretch;
+  }
+  .footer .columns:not(:has(> .column.description)) > .logos {
+    align-items: flex-start;
   }
   .footer .columns:has(> .column.description) > .row.links {
     column-gap: 20px;
