@@ -121,6 +121,49 @@
         </aside>
       </Transition>
       <div class="page-main">
+        <!-- Level of the results: resources, or one fragment type (granularity) -->
+        <div
+          v-if="granularityOptions.length"
+          class="results-level-bar"
+        >
+          <div class="results-level-field">
+            <label for="search-granularity">Afficher</label>
+            <select
+              id="search-granularity"
+              class="results-level-select"
+              :value="granularity || ''"
+              @change="selectGranularity($event.target.value)"
+            >
+              <option value="">
+                Ressources
+              </option>
+              <option
+                v-for="option in granularityOptions"
+                :key="option.citeType"
+                :value="option.citeType"
+              >
+                {{ option.label }} ({{ option.count }})
+              </option>
+            </select>
+          </div>
+          <fieldset
+            v-if="granularity"
+            class="results-group-by"
+          >
+            <legend>Regrouper par</legend>
+            <label
+              v-for="option in groupByOptions"
+              :key="option.value"
+            >
+              <input
+                type="checkbox"
+                :checked="groupBy.includes(option.value)"
+                @change="toggleGroupBy(option.value)"
+              >
+              {{ option.label }}
+            </label>
+          </fieldset>
+        </div>
         <div
           class="document-list list-mode"
           :class="openedFacets.length > 0 ? 'with-opened-facets' : ''"
@@ -135,7 +178,10 @@
             :counts="search.totalCount.value"
             :is-elastic-search="true"
             :total-buckets="search.bucketCount.value"
-            :is-with-highlights="!!(isFulltextSearch && inputTerm.trim() && inputTerm.trim().length > 0)"
+            :is-with-highlights="!granularity && !!(isFulltextSearch && inputTerm.trim() && inputTerm.trim().length > 0)"
+            :is-fragment-list="!!granularity"
+            :group-by="groupBy"
+            :count-label="fragmentCountLabel"
             :collection-indexed="search.collectionIndexed.value"
             @sort-change="updateSort"
             @page-change="changePage"
@@ -158,6 +204,22 @@ import CollectionHeader from '@/components/CollectionHeader.vue'
 import ResourcesList from '@/components/ResourcesList.vue'
 import SearchFacets from '@/components/SearchFacets.vue'
 import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
+
+// Facets that do not come from the metadata: resources narrows the perimeter like collections
+const DEFAULT_FACET_LABELS = { resources: 'Ressources' }
+const DEFAULT_FACET_ORDERS = { resources: 1 }
+
+// A fragment row shows its first extracts only: a long article can match a hundred times
+const MAX_FRAGMENT_SNIPPETS = 3
+
+// Fragment columns when searchConfig.granularities.<citeType>.columns is not set
+const DEFAULT_FRAGMENT_COLUMNS = [
+  { key: 'dublinCore.title', label: 'Titre', width: '2fr' },
+  { key: 'dublinCore.date', label: 'Date', type: 'date', ifTemporalFacet: 'dublinCore.date' },
+  { key: 'dublinCore.creator', label: 'Auteur', ifFacet: 'dublinCore.creator' },
+  { key: 'resource', label: 'Ressource', sortKey: 'path' },
+  { key: 'subCollection', label: 'Sous-collection', sortKey: 'path', ifRows: true }
+]
 
 export default {
   name: 'SearchPage',
@@ -221,6 +283,80 @@ export default {
 
     const openedFacets = search.openedFacets
 
+    // Fragment type listed instead of resources (citeType), null for resources
+    const granularity = search.granularity
+    const groupBy = search.groupBy
+
+    // searchConfig.granularities.<citeType>: same keys as searchConfig (facets,
+    // temporalFacets) plus label, columns and groupBy, for that fragment type
+    const granularityConfig = computed(() =>
+      granularity.value
+        ? collConfig.value?.searchConfig?.granularities?.[granularity.value] || {}
+        : null
+    )
+
+    const facetsConfig = computed(() =>
+      granularityConfig.value
+        ? granularityConfig.value.facets || []
+        : collConfig.value?.searchConfig?.facets || []
+    )
+
+    const temporalFacetsConfig = computed(() =>
+      granularityConfig.value
+        ? granularityConfig.value.temporalFacets || []
+        : collConfig.value?.searchConfig?.temporalFacets || []
+    )
+
+    const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : str
+
+    // Fragment types of the collection, minus the ones a configuration disables
+    const granularityOptions = computed(() => {
+      const configs = collConfig.value?.searchConfig?.granularities || {}
+
+      return (search.granularities.value || [])
+        .filter(g => configs[g.citeType]?.enabled !== false)
+        .map(g => ({
+          citeType: g.citeType,
+          label: configs[g.citeType]?.label || capitalize(g.citeType),
+          count: g.count
+        }))
+    })
+
+    const groupByOptions = [
+      { value: 'subCollection', label: 'Sous-collection' },
+      { value: 'resource', label: 'Ressource' }
+    ]
+
+    const fragmentCountLabel = computed(() => {
+      if (!granularity.value) return null
+
+      const label = granularityConfig.value?.label || `${granularity.value}s`
+      return label.toLowerCase()
+    })
+
+    function selectGranularity(value) {
+      search.setGranularity(value || null)
+      search.setGroupBy(
+        value ? collConfig.value?.searchConfig?.granularities?.[value]?.groupBy || [] : []
+      )
+
+      // The store dropped the sort; the inputSort watcher then searches again
+      if (inputSort.value) {
+        inputSort.value = null
+      } else {
+        executeSearches()
+      }
+    }
+
+    function toggleGroupBy(value) {
+      const next = groupBy.value.includes(value)
+        ? groupBy.value.filter(v => v !== value)
+        : [...groupBy.value, value]
+
+      search.setGroupBy(groupByOptions.map(o => o.value).filter(v => next.includes(v)))
+      executeSearches()
+    }
+
     function onTemporalChange({key, range}){
       // `ranges` is keyed by the canonical key; the Elasticsearch paths
       // travel inside `range` as startField / endField.
@@ -239,8 +375,7 @@ export default {
     // (see `label: c?.label || facet.label` in visibleTemporal).
     // Declaring an entry therefore customises it (label, order) or excludes it.
     const disabledTemporalFacetIds = computed(() => {
-      const config =
-        collConfig.value?.searchConfig?.temporalFacets || []
+      const config = temporalFacetsConfig.value
 
       return config
         .filter(c => c.enabled === false)
@@ -255,8 +390,7 @@ export default {
     // such as cid.conf.json (`[{ id: 'collections', enabled: false }]`) is
     // therefore translated faithfully.
     const disabledFacetIds = computed(() => {
-      const config =
-        collConfig.value?.searchConfig?.facets || []
+      const config = facetsConfig.value
 
       return config
         .filter(c => c.enabled === false)
@@ -265,8 +399,7 @@ export default {
     })
 
     const visibleTemporal = computed(() => {
-      const config =
-        collConfig.value?.searchConfig?.temporalFacets || []
+      const config = temporalFacetsConfig.value
       const configMap = new Map(
         config.map(c => [c.key, c])
       )
@@ -323,7 +456,7 @@ export default {
       const result = []
       const available = search.facets.value?.available || {}
       const initialAvailable = search.initialFacets.value?.available || {}
-      const configFacets = collConfig.value?.searchConfig?.facets || []
+      const configFacets = facetsConfig.value
       const collectionsConfig = configFacets.find(f => f.key === 'collections')
 
       if (available.collections  && collectionsConfig?.enabled !== false) {
@@ -362,14 +495,19 @@ export default {
           if(config?.enabled === false)
             return
 
+          // A fragment type rarely fills every facet of the index: hide the empty ones
+          if (granularity.value && !values?.length)
+            return
+
           result.push({
             key: id,
             label:
               config?.label ||
+              DEFAULT_FACET_LABELS[id] ||
               id,
             values,
             order:
-              config?.order ?? 999
+              config?.order ?? DEFAULT_FACET_ORDERS[id] ?? 999
           })
         })
 
@@ -501,6 +639,54 @@ export default {
         }))
       }
 
+      // Fragment case: one row per fragment, its own metadata at the top so
+      // that column keys (`dublinCore.date`) resolve as for a resource
+      if (granularity.value && Array.isArray(result)) {
+        const withSnippets = !!(isFulltextSearch.value && inputTerm.value.trim())
+
+        return result.map(fragment => {
+          const pathIds = fragment.path_ids || []
+          const pathLabels = (fragment.path || '').split(' > ')
+          // path_ids: [root, sub-collections…, resource]
+          const parentIndex = pathIds.length - 2
+          const subCollection = parentIndex > 0
+            ? { id: pathIds[parentIndex], label: pathLabels[parentIndex] || pathIds[parentIndex] }
+            : null
+          const resourceLabel = fragment.resource_title || pathLabels[pathLabels.length - 1] || fragment.resource_id
+
+          const route = buildPassageUrl(
+            fragment.resource_id,
+            {
+              passageId: fragment.passage_id,
+              citeType: fragment.citeType,
+              level: fragment.level,
+              ancestors: fragment.ancestors || []
+            },
+            tocSettings,
+            collectionId.value,
+            subCollection?.id ?? pathIds[0],
+            props.isDocProjectIdIncluded
+          )
+
+          return {
+            ...fragment,
+            identifier: `${fragment.resource_id}::${fragment.passage_id}`,
+            projectIdentifier: pathIds[0],
+            dublincore: { title: fragment.title, ...(fragment.metadata?.dublincore || {}) },
+            extensions: fragment.metadata?.extensions || {},
+            tei: fragment.metadata?.tei || {},
+            resource: resourceLabel,
+            subCollection: subCollection?.label || '',
+            groupKeys: {
+              subCollection,
+              resource: { id: fragment.resource_id, label: resourceLabel }
+            },
+            snippets: withSnippets ? (fragment.highlight?.content || []).slice(0, MAX_FRAGMENT_SNIPPETS) : [],
+            passageUrl: route ? router.resolve(route) : null
+          }
+        })
+      }
+
       // Straight table case
       if (Array.isArray(result)) {
         return result.map(item => ({
@@ -515,19 +701,42 @@ export default {
       return []
     })
 
+    const toColumns = configCols => configCols
+      .filter(col => col && col.key)
+      .map(col => ({
+        key: col.key,
+        label: col.label || col.key,
+        type: col.type || 'string',
+        width: col.width,
+        sortable: col.sortable,
+        sortKey: col.sortKey
+      }))
+
     const columns = computed(() => {
+      if (granularity.value) {
+        const fragmentCols = granularityConfig.value?.columns
+
+        if (fragmentCols?.length > 0) {
+          return toColumns(fragmentCols)
+        }
+
+        // Defaults: a column only when the results can fill it and no group header repeats it
+        const facets = search.facets.value?.available || {}
+        const temporalKeys = (search.initialTemporal.value || []).map(f => f.key)
+
+        return toColumns(DEFAULT_FRAGMENT_COLUMNS.filter(col =>
+          (!col.ifFacet || facets[col.ifFacet]?.length) &&
+          (!col.ifTemporalFacet || temporalKeys.includes(col.ifTemporalFacet)) &&
+          (!col.ifRows || tableData.value.some(row => row[col.key])) &&
+          !groupBy.value.includes(col.key)
+        ))
+      }
+
       const configCols =
         props.collectionConfig?.homePageSettings?.listSection?.columns
 
       if (configCols?.length > 0) {
-        return configCols
-          .filter(col => col && col.key)
-          .map(col => ({
-            key: col.key,
-            label: col.label || col.key,
-            type: col.type || 'string',
-            width: col.width
-          }))
+        return toColumns(configCols)
       }
 
       // Minimal fallback on title only as in default.conf.json (namespaced metadata key)
@@ -624,12 +833,14 @@ export default {
     // Temporal property sorts on their normalised numeric bound rather, not the raw value
     // Unparseable dates, excluded from results (`getRowValue`), should not affect sorting either
 
-    const updateSort = ({ key, direction }) => {
+    // A column may sort on another criterion than its key (`resource` → `path`)
+    const updateSort = ({ key, direction, column }) => {
       if (!key || direction === 'none') {
         inputSort.value = null
         return
       }
-      inputSort.value = direction === 'desc' ? `-${key}` : key
+      const sortKey = column?.sortKey || key
+      inputSort.value = direction === 'desc' ? `-${sortKey}` : sortKey
     }
 
     // PAGINATION
@@ -915,11 +1126,88 @@ export default {
       stickyHeaderEl,
       sidebarOpen,
       toggleSidebar,
+      granularity,
+      groupBy,
+      granularityOptions,
+      groupByOptions,
+      fragmentCountLabel,
+      selectGranularity,
+      toggleGroupBy,
     }
   }
 }
 </script>
 <style scoped>
+/* Level of the results (granularity) and grouping */
+.results-level-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 32px;
+  margin-top: 24px;
+  font-family: var(--font-primary), sans-serif;
+  font-size: 15px;
+  color: #4a4a4a;
+}
+
+.results-level-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.results-level-field label,
+.results-group-by legend {
+  font-weight: 500;
+  color: #4a4a4a;
+}
+
+.results-level-select {
+  min-height: 40px;
+  padding: 6px 32px 6px 12px;
+  border: 1px solid var(--fill-color);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fill-color);
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.results-group-by {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.results-group-by legend {
+  float: left;
+  margin-right: 8px;
+}
+
+.results-group-by label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.results-group-by input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--fill-color);
+}
+
+.results-level-bar + .document-list {
+  margin-top: 16px;
+}
+
 .document-list {
   display: flex;
   justify-content: center;

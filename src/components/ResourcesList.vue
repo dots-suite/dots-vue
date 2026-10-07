@@ -32,6 +32,7 @@
             >
               <div class="cell header-cell-fields">
                 <SortIcon
+                  v-if="col.sortable !== false"
                   class="icons"
                   :state="sort.key === col.key ? sort.direction : 'none'"
                   :type="col.type || 'string'"
@@ -237,6 +238,56 @@
           </template>
         </template>
 
+        <!-- FRAGMENTS: one row per fragment, optional group headers -->
+        <template v-else-if="isFragmentList">
+          <template
+            v-for="(item, index) in paginated"
+            :key="item.identifier"
+          >
+            <li
+              v-for="header in groupHeadersAt(index)"
+              :key="header.key"
+              class="group-header"
+              :class="`group-header--${header.level}`"
+            >
+              <div class="li container group-header-row">
+                <div class="cell">
+                  {{ header.label }}
+                </div>
+              </div>
+            </li>
+            <li>
+              <div
+                class="li container row"
+                @click="goToPassage(item, $event)"
+              >
+                <div
+                  v-for="col in columns"
+                  :key="col.key"
+                  class="cell"
+                >
+                  <a :href="item.passageUrl?.href">
+                    {{ getRowValue(item, col.key) }}
+                  </a>
+                </div>
+              </div>
+              <div
+                v-if="item.snippets?.length"
+                class="li container row-snippets"
+              >
+                <div class="cell">
+                  <span
+                    v-for="phrase in item.snippets"
+                    :key="phrase"
+                    class="snippet"
+                    v-html="phrase"
+                  />
+                </div>
+              </div>
+            </li>
+          </template>
+        </template>
+
         <!-- NON SEARCH MODE -->
         <template v-else>
           <li
@@ -320,6 +371,12 @@ name: 'ResourcesList',
     totalBuckets: { type: Number },
     isTableLoading: Boolean,
     isWithHighlights: Boolean,
+    // Fragment results (granularity): one row per fragment, linked to its passage
+    isFragmentList: Boolean,
+    // Levels the fragment rows are grouped by: 'subCollection', 'resource'
+    groupBy: { type: Array, default: () => [] },
+    // Name of the listed fragments in the results count, e.g. "actes"
+    countLabel: { type: String, default: null },
     // true / false after search is executed ; null when irrelevant (outside search mode or search missing scope collection)
     collectionIndexed: { type: Boolean, default: null }
   },
@@ -428,9 +485,9 @@ name: 'ResourcesList',
         const { start, end } = table.getTemporalRange(row, key)
 
         // La normalisation n'a pas produit les deux bornes :
-        // on n'affiche pas la date.
+        // on n'affiche pas la date, sauf pour un fragment (valeur source signalée)
         if (start == null || end == null) {
-          return ''
+          return props.isFragmentList && value ? `${value} (non normalisée)` : ''
         }
       }
 
@@ -464,6 +521,11 @@ name: 'ResourcesList',
       })
 
       table.filters.value = initialFilters
+
+      if (sort.value.key && !cols.some(col => col.key === sort.value.key)) {
+        sort.value.key = null
+        sort.value.direction = 'none'
+      }
     }, { immediate: true })
 
     // TEXT
@@ -482,6 +544,10 @@ name: 'ResourcesList',
     const resultsSummaryText = computed(() => {
       const docs = documentCount.value
       const passages = passageCount.value
+
+      if (props.isFragmentList) {
+        return `${docs} ${props.countLabel || 'fragments'}`
+      }
 
       const docLabel = docs > 1 ? 'documents' : 'document'
 
@@ -563,6 +629,41 @@ name: 'ResourcesList',
     }
 
 
+    // GROUPS: a header where the sub-collection or the resource changes,
+    // the rows coming sorted by their resource path
+    const groupHeadersAt = (index) => {
+      const levels = ['subCollection', 'resource'].filter(level => props.groupBy.includes(level))
+      const rows = paginated.value
+      const item = rows[index]
+      const previous = index > 0 ? rows[index - 1] : null
+      const headers = []
+      let changed = !previous
+
+      levels.forEach(level => {
+        const group = item.groupKeys?.[level]
+        changed = changed || group?.id !== previous?.groupKeys?.[level]?.id
+
+        if (changed && group) {
+          headers.push({ key: `${level}:${group.id}:${index}`, level, label: group.label })
+        }
+      })
+
+      return headers
+    }
+
+    const goToPassage = async (item, event) => {
+      if (
+        !item.passageUrl ||
+        event?.metaKey ||
+        event?.ctrlKey ||
+        event?.shiftKey ||
+        event?.button === 1
+      ) return
+
+      event.preventDefault()
+      await router.push(item.passageUrl)
+    }
+
     // NAVIGATION
     const setStateCollection = (collId) => {
       store.commit('setCollectionId', collId)
@@ -622,6 +723,8 @@ name: 'ResourcesList',
       buildBreadcrumbParts,
       getTableHref,
       goToPageTable,
+      groupHeadersAt,
+      goToPassage,
       tableVariant,
       gridTemplateColumns
     }
@@ -915,6 +1018,50 @@ name: 'ResourcesList',
   background: #5a5a5a;
   -webkit-mask: url(../assets/images/croix.svg) center / contain no-repeat;
   mask: url(../assets/images/croix.svg) center / contain no-repeat;
+}
+
+/* FRAGMENTS */
+.list-mode .group-header-row {
+  display: block !important;
+  padding: 18px 15px 8px;
+  cursor: default;
+}
+
+.list-mode .group-header--subCollection .group-header-row {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fill-color);
+  border-bottom: 2px solid var(--fill-color);
+}
+
+.list-mode .group-header--resource .group-header-row {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a4a4a;
+  border-bottom: 1px solid #dcdcdc;
+}
+
+.list-mode .group-header--subCollection + .group-header--resource .group-header-row {
+  padding-top: 10px;
+}
+
+.list-mode .li.container.row-snippets {
+  display: block !important;
+  padding: 0 15px 15px;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #5a5a5a;
+}
+
+.list-mode .row-snippets .snippet:not(:last-child)::after {
+  content: " ●●● ";
+  padding: 0 5px;
+  color: var(--fill-color);
+}
+
+.list-mode .row-snippets .snippet :deep(mark) {
+  background-color: #ffe066;
 }
 
 /* FILTER */

@@ -55,6 +55,13 @@ function createEmptySearchState() {
 
     noHighlight: false,
 
+    // Fragment type (citeType) listed instead of resources, null for resources
+    granularity: null,
+    // Levels fragment results are grouped by: 'subCollection', 'resource'
+    groupBy: [],
+    // Fragment types of the collection with their counts, from the API
+    granularities: [],
+
     isFulltextSearch: false,
     isResultTableMode: true,
 
@@ -321,6 +328,39 @@ export default {
       invalidatePagination(s)
     },
 
+    // Facets, dates and sorts differ between resources and fragments: only
+    // the perimeter (collections, resources) survives a change of level
+    setSearchGranularity(state, v) {
+      const s = getProject(state)
+      const next = v || null
+
+      if (!s || s.granularity === next) return
+
+      s.granularity = next
+
+      s.facets.selected = Object.fromEntries(
+        Object.entries(s.facets.selected)
+          .filter(([facetType]) => facetType === 'collections' || facetType === 'resources')
+      )
+      s.facets.available = {}
+      s.initialFacets = { available: {} }
+      s.ranges = {}
+      s.temporal = []
+      s.initialTemporal = []
+      s.sorts = ''
+      s.result = []
+
+      invalidatePagination(s)
+    },
+
+    setSearchGroupBy(state, v) {
+      const s = getProject(state)
+      if (!s) return
+
+      s.groupBy = Array.isArray(v) ? v : []
+      invalidatePagination(s)
+    },
+
     setSearchSorts(state, v) {
       const s = getProject(state)
 
@@ -361,6 +401,7 @@ export default {
       }
 
       s.highlightPatterns = payload.highlight_patterns || []
+      s.granularities = payload.granularities || []
       s.temporal = payload.temporal || []
 
       // On ne mémorise les bornes initiales qu'une seule fois
