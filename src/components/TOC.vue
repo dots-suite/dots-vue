@@ -7,7 +7,12 @@
       <li
         v-if="item.show"
         :style="`margin-left: ${ (item.level -1) * 15 }px;`"
-        :class="{ 'is-current-parent': isCurrentItem(item), 'more': item.level < maxcitedepth && item.children && item.children.length > 0 }"
+        :class="{
+          'is-current-parent': isCurrentItem(item),
+          'more': item.level < maxcitedepth && item.children && item.children.length > 0,
+          'sublist-first': isSubListFirst(index),
+          'sublist-last': isSubListLast(index)
+        }"
       >
         <div class="li container">
           <button
@@ -117,6 +122,23 @@ export default {
           }
         }
       })
+    }
+
+    // The tree is a flat list indented by level: a sub-list starts at a visible item deeper
+    // than the previous visible one, and ends at a visible item deeper than the next one
+    const visibleNeighbour = (index, step) => {
+      for (let i = index + step; i >= 0 && i < componentTOC.value.length; i += step) {
+        if (componentTOC.value[i].show) return componentTOC.value[i]
+      }
+      return null
+    }
+    const isSubListFirst = (index) => {
+      const previous = visibleNeighbour(index, -1)
+      return !!previous && previous.level < componentTOC.value[index].level
+    }
+    const isSubListLast = (index) => {
+      const next = visibleNeighbour(index, 1)
+      return !!next && next.level < componentTOC.value[index].level
     }
 
     const toggleExpanded = (id) => {
@@ -368,6 +390,8 @@ export default {
     return {
       goTo,
       isCurrentItem,
+      isSubListFirst,
+      isSubListLast,
       toggleExpanded,
       componentTOC,
       scrollToPreviousColumn,
@@ -378,226 +402,169 @@ export default {
 </script>
 
 <style scoped>
-div.toc-area-content.toc-content {
-  .tree {
-    font-size: var(--font-toc-metadata-size);
-    font-weight: 500;
-    line-height: 22px;
-    columns: 3;
-    gap: 20px;
-    min-height: 100px;
-    width: 100%;
-
-    li {
-      break-inside: avoid;
-
-      &::before {
-        content: '';
-      }
-    }
-  }
-
-  @media screen and (max-width: 1024px) {
-    .tree {
-      columns: 2;
-    }
-  }
-
-  @media screen and (max-width: 640px) {
-    .tree {
-      columns: 1;
-      gap: 15px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      overflow-y: -webkit-paged-x;
-      scrollbar-width: thin;
-      max-height: calc(100dvh - 320px); /* Horizontal scroll */
-      padding: 20px 0;
-
-      position: relative;
-      z-index: 1;
-    }
-  }
-
-  .tree li {
-    font-size: 15px;
-    font-weight: 400;
-    line-height: 20px;
-
-    &:not(.more)::before {
-      margin-left: -7px;
-      margin-right: 11px;
-    }
-
-    & .li.container {
-      display: flex;
-      margin: 0;
-
-      & > a {
-        display:inline-block;
-        color: #4a4a4a;
-      }
-    }
-
-    &.more {
-      display: block;
-      padding-left: 0;
-      break-inside: avoid;
-
-      & .li.container > a, span {
-        margin-top: 4px;
-      }
-
-      &::before {
-        content: none !important;
-      }
-    }
-  }
+/* Top TOC: columns */
+div.toc-area-content.toc-content .tree {
+  columns: 3;
+  gap: 20px;
+  min-height: 100px;
 }
-div.toc-area-aside.toc-content {
 
-  ul.tree {
-    width: 100%;
-    padding: 0;
-    margin: 1em 0 1em 0;
-
-    font-size: 15px;
-    font-weight: 500;
-    line-height: 22px;
-  }
-  .tree li {
-    padding: 1px 0 1px 18px ;
-    font-size: 15px;
-    font-weight: 400;
-    line-height: 20px;
-
-    &:not(.more) {
-      padding-top: 4px;
-      padding-bottom: 4px;
-    }
-
-    &.is-current-parent {
-      padding-left: 10px;
-      padding-top: 0;
-      padding-bottom: 0;
-    }
-
-    &::before {
-      /* content: ''; */
-    }
-
-    &:not(.more)::before {
-      margin-left: -7px;
-      margin-right: 11px;
-    }
-
-    & .li.container {
-      display: flex;
-      margin: 0;
-
-      & > a {
-        color: #4a4a4a;
-
-        &.is-current {
-          margin-top: 3px;
-          margin-bottom: 3px;
-        }
-      }
-    }
-
-    &.more {
-      padding-left: 0;
-      & .li.container > a, span {
-      margin-top: 4px;
-    }
-
-      &::before {
-        content: none !important;
-      }
-    }
-  }
+div.toc-area-content.toc-content .tree li {
+  break-inside: avoid;
 }
-div.bottom-toc {
-  .tree {
-    /* margin-left: -9px; */
-  }
-  .tree li {
-    margin-bottom: 5px;
-    padding: 0 0 0 14px;
 
-    &:not(.more)::before {
-      margin-left: -7px;
-      margin-right: 11px;
-    }
-
-    & .li.container {
-      display: flex;
-      align-items: center;
-      margin: 0;
-
-      & > a {
-        color: var(--document-text-color);
-
-        &:hover {
-          text-decoration: var(--text-decoration-hover);
-        }
-      }
-    }
-
-    &.more {
-      padding-left: 0;
-
-      & .li.container > a {
-        margin-top: 0;
-      }
-      &::before {
-        content: none !important;
-      }
-    }
+@media screen and (max-width: 1024px) {
+  div.toc-area-content.toc-content .tree {
+    columns: 2;
   }
 }
 
-.toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title:hover,
-.toc-area-aside li:not(.more) > .li.container > a.toc-title:hover,
-.toc-area-content.toc-content li:not(.more) > .li.container > .is-current,
-.toc-area-aside li:not(.more) > .li.container > is-current {
+@media screen and (max-width: 640px) {
+  div.toc-area-content.toc-content ul.tree {
+    columns: 1;
+    gap: 15px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overflow-y: -webkit-paged-x;
+    scrollbar-width: thin;
+    max-height: calc(100dvh - 320px); /* Horizontal scroll */
+    padding: 20px 10px 20px 0;
+
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* Top, left (aside) and bottom TOCs share the same geometry */
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree {
+  --toc-marker-width: 30px;
+  --toc-line-height: 20px;
+  --toc-row-padding: 4px;
+  --toc-sublist-gap: 6px;
+  --toc-bullet-color: #b0b0b0;
+
+  width: 100%;
+  padding: 0;
+  margin: 1em 0;
+  list-style: none;
+  font-size: var(--font-toc-metadata-size);
+  font-weight: 400;
+  line-height: var(--toc-line-height);
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li {
+  padding: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  border: none;
+  font-size: var(--font-toc-metadata-size);
+  font-weight: 400;
+  line-height: var(--toc-line-height);
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li::before {
+  content: none;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li.sublist-last {
+  margin-bottom: var(--toc-sublist-gap);
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li > .li.container {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+}
+
+/* Carets and bullets share a marker column one row high: same text start, same row height */
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li > .li.container > button.toc-toggle,
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li:not(.more) > .li.container::before {
+  flex: 0 0 var(--toc-marker-width);
+  width: var(--toc-marker-width);
+  height: calc(var(--toc-line-height) + 2 * var(--toc-row-padding));
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li > .li.container > button.toc-toggle {
+  justify-content: center;
+  overflow: visible;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li:not(.more) > .li.container::before {
+  content: '';
+  background: radial-gradient(circle, var(--toc-bullet-color) 2px, transparent 2.5px) center / 100% 100% no-repeat;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree li > .li.container > a.toc-title {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: var(--toc-row-padding) 0;
+  line-height: var(--toc-line-height);
+  border: none;
+}
+
+/* The top TOC sits on a darker background (#e4e4e4) */
+div.toc-area-content.toc-content .tree {
+  --toc-bullet-color: #8f8f8f;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li > .li.container > a.toc-title {
+  color: #4a4a4a;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li:not(.more) > .li.container > a.toc-title {
+  padding-left: 8px;
+  padding-right: 8px;
+  margin-left: -8px;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li:not(.more) > .li.container > a.toc-title:hover,
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li:not(.more) > .li.container > a.toc-title.is-current {
   background-color: #F9F9F9;
 }
 
-.toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title,
-.toc-area-aside li:not(.more) > .li.container > a.toc-title {
-  padding: 6px 20px;
+/* The current item replaces its bullet with a 2px bar drawn at the bullet position */
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li.is-current-parent:not(.more) > .li.container::before {
+  background: none;
 }
 
-.toc-area-content.toc-content li.more.is-current-parent > .li.container > a.toc-title.is-current,
-.toc-area-aside li.more.is-current-parent > .li.container > a.toc-title.is-current {
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li:not(.more) > .li.container > a.toc-title.is-current {
+  margin-left: calc(var(--toc-marker-width) / -2 - 1px);
+  padding-left: calc(var(--toc-marker-width) / 2 + 1px);
+  background-color: #F9F9F9 !important;
+  box-shadow: inset 2px 0 0 var(--fill-color);
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li.more:not(.is-current-parent) > .li.container > a.toc-title:hover {
+  color: var(--fill-color) !important;
+}
+
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li.more.is-current-parent > .li.container > a.toc-title.is-current {
   font-weight: 500;
   color: var(--fill-color) !important;
-
-  &:hover {
-    text-decoration: underline;
-  }
 }
 
-.toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title:not(.is-current):hover,
-.toc-area-content.toc-content li.more > .li.container > a.toc-title:hover,
-.toc-area-content.toc-content li.more:not(.is-current-parent) > .li.container > a.toc-title:hover,
-.toc-area-aside li.more:not(.is-current-parent) > .li.container > a.toc-title:hover {
+:is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content) .tree li.more.is-current-parent > .li.container > a.toc-title.is-current:hover {
+  text-decoration: underline;
+}
+
+div.toc-area-content.toc-content .tree li:not(.more) > .li.container > a.toc-title:not(.is-current):hover {
   color: var(--fill-color) !important;
 }
 
-.toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title.is-current,
-.toc-area-aside li:not(.more) > .li.container > a.toc-title.is-current {
-  display: inline-block;
-  border-left: 2px solid var(--fill-color);
-  margin: 0 0 0 -16px;
-  background-color: #F9F9F9 !important;
+div.bottom-toc .tree li > .li.container > a.toc-title {
+  color: var(--document-text-color);
 }
 
-.toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title.is-current,
-.toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title:not(.is-current),
-.toc-area-aside li:not(.more) > .li.container > a.toc-title:not(.is-current) {
-  margin-left: -22px;
+div.bottom-toc .tree li > .li.container > a.toc-title:hover {
+  text-decoration: var(--text-decoration-hover);
+}
+
+@media screen and (max-width: 768px) {
+  :is(div.toc-area-content.toc-content, div.toc-area-aside.toc-content, div.bottom-toc) .tree {
+    --toc-marker-width: 25px;
+  }
 }
 
 #toc-tree-navigation {
@@ -640,14 +607,6 @@ div.bottom-toc {
 
 
 
-@media screen and (max-width: 768px) {
-  .toc-area-content.toc-content li:not(.more) > .li.container > a.toc-title,
-  .toc-area-aside li:not(.more) > .li.container > a.toc-title {
-    padding: 2px 20px;
-  }
-
-}
-
 button.toc-toggle {
   --icon-bg: transparent;
 
@@ -663,7 +622,7 @@ button.toc-toggle {
   display: inline-flex;
   align-items: center;
   width: 30px;
-  height: 28px;
+  /*height: 28px;*/
   padding: 0;
   margin: 0;
 
@@ -673,12 +632,18 @@ button.toc-toggle {
 @media screen and (max-width: 768px) {
   button.toc-toggle {
     width: 25px;
-    height: 22px;
+    /*height: 22px;*/
   }
 }
 
 :deep(button.toc-toggle svg) {
   color: var(--fill-color);
+}
+
+:deep(button.toc-toggle .icon-wrapper) {
+  flex: none;
+  width: 30px;
+  height: 30px;
 }
 
 </style>
