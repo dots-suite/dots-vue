@@ -420,7 +420,7 @@ div.toc-area-content.toc-content .tree li {
 }
 
 @media screen and (max-width: 640px) {
-  div.toc-area-content.toc-content .tree {
+  div.toc-area-content.toc-content ul.tree {
     columns: 1;
     gap: 15px;
     overflow-x: auto;
@@ -444,6 +444,9 @@ div.toc-area-content.toc-content .tree li {
   --toc-bullet-color: #b0b0b0;
 
   width: 100%;
+  padding: 0;
+  margin: 1em 0;
+  list-style: none;
   font-size: var(--font-toc-metadata-size);
   font-weight: 400;
   line-height: var(--toc-line-height);
