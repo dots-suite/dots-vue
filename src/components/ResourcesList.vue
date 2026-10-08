@@ -256,7 +256,80 @@
                 </div>
               </div>
             </li>
-            <li>
+            <!-- Full-text: highlights behind a chevron, as for resources -->
+            <template v-if="isHighlights">
+              <li>
+                <div
+                  class="li container row"
+                  :class="{ 'is-selected': isOpen(item.identifier) }"
+                  @click="toggle(item.identifier)"
+                >
+                  <div
+                    v-for="col in columns"
+                    :key="col.key"
+                    class="cell"
+                  >
+                    <a
+                      href="#"
+                      @click.prevent
+                    >
+                      {{ getRowValue(item, col.key) }}
+                    </a>
+                  </div>
+                  <div
+                    class="cell"
+                    :class="isOpen(item.identifier) ? 'chevron-down' : 'chevron-up'"
+                  >
+                    <a
+                      href="#"
+                      :aria-expanded="isOpen(item.identifier)"
+                      aria-label="Afficher les résultats"
+                      @click.stop.prevent="toggle(item.identifier)"
+                    />
+                  </div>
+                </div>
+              </li>
+              <li v-if="isOpen(item.identifier)">
+                <div class="li container row-details">
+                  <div
+                    class="cell"
+                    :style="{ gridColumn: '1 / -1' }"
+                  >
+                    <ul class="hits-list">
+                      <li>
+                        <router-link
+                          v-if="item.passageUrl"
+                          :to="item.passageUrl"
+                          class="hit-breadcrumb"
+                        >
+                          <template
+                            v-for="(part, i) in buildBreadcrumbParts(item)"
+                            :key="i"
+                          >
+                            <span
+                              v-if="i > 0"
+                              class="hit-breadcrumb-sep"
+                              aria-hidden="true"
+                            >&gt;</span>
+                            <span class="hit-breadcrumb-tag">{{ part }}</span>
+                          </template>
+                        </router-link>
+                        <ul v-if="item.highlights?.length">
+                          <li
+                            v-for="phrase in item.highlights"
+                            :key="phrase"
+                          >
+                            <span v-html="phrase" />
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </li>
+            </template>
+            <!-- Notice: the row opens the passage -->
+            <li v-else>
               <div
                 class="li container row"
                 @click="goToPassage(item, $event)"
@@ -269,19 +342,6 @@
                   <a :href="item.passageUrl?.href">
                     {{ getRowValue(item, col.key) }}
                   </a>
-                </div>
-              </div>
-              <div
-                v-if="item.snippets?.length"
-                class="li container row-snippets"
-              >
-                <div class="cell">
-                  <span
-                    v-for="phrase in item.snippets"
-                    :key="phrase"
-                    class="snippet"
-                    v-html="phrase"
-                  />
                 </div>
               </div>
             </li>
@@ -1043,25 +1103,6 @@ name: 'ResourcesList',
 
 .list-mode .group-header--subCollection + .group-header--resource .group-header-row {
   padding-top: 10px;
-}
-
-.list-mode .li.container.row-snippets {
-  display: block !important;
-  padding: 0 15px 15px;
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 1.5;
-  color: #5a5a5a;
-}
-
-.list-mode .row-snippets .snippet:not(:last-child)::after {
-  content: " ●●● ";
-  padding: 0 5px;
-  color: var(--fill-color);
-}
-
-.list-mode .row-snippets .snippet :deep(mark) {
-  background-color: #ffe066;
 }
 
 /* FILTER */

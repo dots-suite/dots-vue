@@ -39,6 +39,28 @@
         "openState": false
       }
     },
+    "searchConfig": {
+      "granularities": {
+        "default": {
+          "columns": [
+            {
+              "key": "dublinCore.title",
+              "label": "Titre",
+              "width": "2fr"
+            },
+            {
+              "key": "dublinCore.date",
+              "label": "Date",
+              "type": "date"
+            },
+            {
+              "key": "dublinCore.creator",
+              "label": "Auteur"
+            }
+          ]
+        }
+      }
+    },
     "footerSettings": {
       "footerTitle": "Titre",
       "footerSubtitles": [

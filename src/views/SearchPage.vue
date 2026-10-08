@@ -178,7 +178,7 @@
             :counts="search.totalCount.value"
             :is-elastic-search="true"
             :total-buckets="search.bucketCount.value"
-            :is-with-highlights="!granularity && !!(isFulltextSearch && inputTerm.trim() && inputTerm.trim().length > 0)"
+            :is-with-highlights="!!(isFulltextSearch && inputTerm.trim() && inputTerm.trim().length > 0)"
             :is-fragment-list="!!granularity"
             :group-by="groupBy"
             :count-label="fragmentCountLabel"
@@ -199,6 +199,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
+import { walkPath } from '@/composables/useTable'
 
 import CollectionHeader from '@/components/CollectionHeader.vue'
 import ResourcesList from '@/components/ResourcesList.vue'
@@ -208,18 +209,6 @@ import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
 // Facets that do not come from the metadata: resources narrows the perimeter like collections
 const DEFAULT_FACET_LABELS = { resources: 'Ressources' }
 const DEFAULT_FACET_ORDERS = { resources: 1 }
-
-// A fragment row shows its first extracts only: a long article can match a hundred times
-const MAX_FRAGMENT_SNIPPETS = 3
-
-// Fragment columns when searchConfig.granularities.<citeType>.columns is not set
-const DEFAULT_FRAGMENT_COLUMNS = [
-  { key: 'dublinCore.title', label: 'Titre', width: '2fr' },
-  { key: 'dublinCore.date', label: 'Date', type: 'date', ifTemporalFacet: 'dublinCore.date' },
-  { key: 'dublinCore.creator', label: 'Auteur', ifFacet: 'dublinCore.creator' },
-  { key: 'resource', label: 'Ressource', sortKey: 'path' },
-  { key: 'subCollection', label: 'Sous-collection', sortKey: 'path', ifRows: true }
-]
 
 export default {
   name: 'SearchPage',
@@ -288,12 +277,14 @@ export default {
     const groupBy = search.groupBy
 
     // searchConfig.granularities.<citeType>: same keys as searchConfig (facets,
-    // temporalFacets) plus label, columns and groupBy, for that fragment type
-    const granularityConfig = computed(() =>
-      granularity.value
-        ? collConfig.value?.searchConfig?.granularities?.[granularity.value] || {}
-        : null
-    )
+    // temporalFacets) plus label, columns and groupBy, for that fragment type;
+    // granularities.default (default.conf.json) fills the keys it does not set
+    const granularityConfig = computed(() => {
+      if (!granularity.value) return null
+
+      const configs = collConfig.value?.searchConfig?.granularities || {}
+      return { ...(configs.default || {}), ...(configs[granularity.value] || {}) }
+    })
 
     const facetsConfig = computed(() =>
       granularityConfig.value
@@ -314,7 +305,7 @@ export default {
       const configs = collConfig.value?.searchConfig?.granularities || {}
 
       return (search.granularities.value || [])
-        .filter(g => configs[g.citeType]?.enabled !== false)
+        .filter(g => g.citeType !== 'default' && configs[g.citeType]?.enabled !== false)
         .map(g => ({
           citeType: g.citeType,
           label: configs[g.citeType]?.label || capitalize(g.citeType),
@@ -681,7 +672,7 @@ export default {
               subCollection,
               resource: { id: fragment.resource_id, label: resourceLabel }
             },
-            snippets: withSnippets ? (fragment.highlight?.content || []).slice(0, MAX_FRAGMENT_SNIPPETS) : [],
+            highlights: withSnippets ? fragment.highlight?.content || [] : [],
             passageUrl: route ? router.resolve(route) : null
           }
         })
@@ -714,21 +705,22 @@ export default {
 
     const columns = computed(() => {
       if (granularity.value) {
-        const fragmentCols = granularityConfig.value?.columns
+        const configs = collConfig.value?.searchConfig?.granularities || {}
+        const ownCols = configs[granularity.value]?.columns
 
-        if (fragmentCols?.length > 0) {
-          return toColumns(fragmentCols)
+        if (ownCols?.length > 0) {
+          return toColumns(ownCols)
         }
 
-        // Defaults: a column only when the results can fill it and no group header repeats it
+        // Shared defaults (granularities.default): a column only when the results can fill it
         const facets = search.facets.value?.available || {}
         const temporalKeys = (search.initialTemporal.value || []).map(f => f.key)
+        const hasValue = value => (Array.isArray(value) ? value.some(hasValue) : value != null && value !== '')
 
-        return toColumns(DEFAULT_FRAGMENT_COLUMNS.filter(col =>
-          (!col.ifFacet || facets[col.ifFacet]?.length) &&
-          (!col.ifTemporalFacet || temporalKeys.includes(col.ifTemporalFacet)) &&
-          (!col.ifRows || tableData.value.some(row => row[col.key])) &&
-          !groupBy.value.includes(col.key)
+        return toColumns((configs.default?.columns || []).filter(col =>
+          facets[col.key]?.length ||
+          temporalKeys.includes(col.key) ||
+          tableData.value.some(row => hasValue(walkPath(row, col.key)))
         ))
       }
 
