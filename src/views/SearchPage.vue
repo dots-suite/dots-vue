@@ -486,10 +486,6 @@ export default {
           if(config?.enabled === false)
             return
 
-          // A fragment type rarely fills every facet of the index: hide the empty ones
-          if (granularity.value && !values?.length)
-            return
-
           result.push({
             key: id,
             label:
