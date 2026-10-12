@@ -101,7 +101,9 @@
         <aside class="facets-sidebar" v-if="sidebarOpen">
           <div class="facets-sidebar-header">
           </div>
+          <!-- Remounted on a change of level so its new facets open by default -->
           <SearchFacets
+            :key="granularity || 'resources'"
             class="search-facets"
             :opened-facets="openedFacets"
             :facets="visibleFacets"
