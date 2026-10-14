@@ -1232,16 +1232,7 @@ export default {
       }
       if (refId.value) {
         currentLevelIndicator.value = flatTOC.value.find(i => i.identifier === refId.value).editorialLevelIndicator
-
-        // select flatTOC elements between the current matching refId and the last element belonging to the same parent
-        const followingElementInTreeLimb = flatTOC.value.findIndex(i => i.identifier === refId.value) + 1
-        const allFollowingElementsInTOC = flatTOC.value.slice(followingElementInTreeLimb, flatTOC.value.length)
-        const lastElementInTreeLimb = allFollowingElementsInTOC.findIndex(i => i.parent === flatTOC.value.find(i => i.identifier === refId.value).parent) === -1
-          ? flatTOC.value.length
-          : allFollowingElementsInTOC.findIndex(i => i.parent === flatTOC.value.find(i => i.identifier === refId.value).parent) + 1
-        const currentMatchingElementIndex = flatTOC.value.findIndex(i => i.identifier === refId.value)
-        // assign portion of topTOC to the bottomTOC and unlink the variables
-        bottomTOC.value = JSON.parse(JSON.stringify(flatTOC.value.slice(followingElementInTreeLimb, lastElementInTreeLimb + currentMatchingElementIndex)))
+        bottomTOC.value = getRefIdBottomTOC()
       } else {
         currentLevelIndicator.value = flatTOC.value.find(i => i.identifier === resourceId.value).editorialLevelIndicator
         // assign portion of topTOC to the bottomTOC and unlink the variables
@@ -1252,6 +1243,20 @@ export default {
       console.log('DocumentPage.vue getTOC bottomTOC :', bottomTOC.value)
       store.commit('setTOC', flatTOC.value)
       isLoading.value = true
+    }
+
+    // flatTOC elements below the current refId: from the next element to the
+    // next sibling of the refId, or to the end of the TOC when it has none.
+    // Shared by the first load (getTOC) and the refId change in the route
+    // watcher, which used to stop one element short when there was no sibling.
+    const getRefIdBottomTOC = () => {
+      const currentIndex = flatTOC.value.findIndex(i => i.identifier === refId.value)
+      const current = flatTOC.value[currentIndex]
+      const start = currentIndex + 1
+      const nextSibling = flatTOC.value.slice(start).findIndex(i => i.parent === current.parent)
+      const end = nextSibling === -1 ? flatTOC.value.length : start + nextSibling
+      // unlink from flatTOC
+      return JSON.parse(JSON.stringify(flatTOC.value.slice(start, end)))
     }
 
     const setBreadcrumbs = async () => {
@@ -1810,13 +1815,7 @@ export default {
               : flatTOC.value.find(i => i.identifier === resourceId.value).editorialLevelIndicator
 
             if (refId.value) {
-              // select flatTOC elements between the current matching refId and the last element belonging to the same parent
-              const followingElementInTreeLimb = flatTOC.value.findIndex(i => i.identifier === refId.value) + 1
-              const allFollowingElementsInTOC = flatTOC.value.slice(followingElementInTreeLimb, flatTOC.value.length)
-              const lastElementInTreeLimb = allFollowingElementsInTOC.findIndex(i => i.parent === flatTOC.value.find(i => i.identifier === refId.value).parent) !== -1 ? allFollowingElementsInTOC.findIndex(i => i.parent === flatTOC.value.find(i => i.identifier === refId.value).parent) + 1 : allFollowingElementsInTOC.length
-              const currentMatchingElementIndex = flatTOC.value.findIndex(i => i.identifier === refId.value)
-              // assign portion of topTOC to the bottomTOC and unlink the variables
-              bottomTOC.value = JSON.parse(JSON.stringify(flatTOC.value.slice(followingElementInTreeLimb, lastElementInTreeLimb + currentMatchingElementIndex)))
+              bottomTOC.value = getRefIdBottomTOC()
             } else {
               // assign portion of topTOC to the bottomTOC and unlink the variables
               bottomTOC.value = JSON.parse(JSON.stringify(topTOC.value.filter(i => i.level > 0)))
