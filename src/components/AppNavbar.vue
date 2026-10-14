@@ -58,6 +58,21 @@
           </template>
         </span>
       </div>
+      <!-- Outside .level-right so it stays in the bar on mobile, next to the burger -->
+      <button
+        v-if="searchRoute && !isSearchPage"
+        type="button"
+        class="search-link"
+        title="Rechercher"
+        aria-label="Rechercher"
+        :aria-expanded="isSearchOpened"
+        @click.stop="isSearchOpened = !isSearchOpened"
+      >
+        <span
+          class="search-icon"
+          aria-hidden="true"
+        />
+      </button>
       <div class="level-right">
         <div class="level-item menu">
           <a
@@ -81,6 +96,15 @@
         </div>
       </div>
     </nav>
+    <!-- Beside the nav, not in it: positioning the nav to hold it would put
+         it, and its burger menu, over the burger button and under the
+         document page's sticky breadcrumb -->
+    <NavbarSearch
+      v-if="searchRoute && !isSearchPage && isSearchOpened"
+      :search-route="searchRoute"
+      :collection-name="searchCollectionName"
+      @close="isSearchOpened = false"
+    />
     <div class="mobile-button">
       <Burger-button
         :opened="isMenuOpened"
@@ -92,11 +116,14 @@
 <script>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import BurgerButton from './Burger.vue'
+import NavbarSearch from './NavbarSearch.vue'
+import { useRoute } from 'vue-router'
 import defaultLogo from '@/assets/images/logo_dots_circle.svg'
+import { getSearchRoute } from '@/composables/search-page'
 
 export default {
   name: 'AppNavbar',
-  components: { BurgerButton },
+  components: { BurgerButton, NavbarSearch },
   props: {
     isDocProjectIdIncluded: {
       type: Boolean,
@@ -160,6 +187,37 @@ export default {
     // Computed property
     const menuCssClass = computed(() => {
       return isMenuOpened.value ? 'is-opened' : ''
+    })
+
+    // The search page is declared on the project, the collections inside it
+    // inherit it
+    const searchRoute = computed(() => getSearchRoute([
+      collectionId.value,
+      collConfig.value?.collectionId,
+      props.projectCollectionConfig?.collectionId
+    ]))
+
+    // Search banner opened from the magnifier, over the navbar
+    const isSearchOpened = ref(false)
+
+    // The search page has its own bar: no magnifier there
+    const route = useRoute()
+    const isSearchPage = computed(() =>
+      route.name === 'CustomPage' && route.params.customPage?.toLowerCase() === 'search'
+    )
+    watch(isSearchPage, (onSearchPage) => {
+      if (onSearchPage) isSearchOpened.value = false
+    })
+
+
+    // Name of the searched collection as the breadcrumb shows it
+    const searchCollectionName = computed(() => {
+      const collId = searchRoute.value?.params.collId
+      if (!collId) return ''
+      const crumb = breadCrumb.value.find(item => Object.keys(item)[0] === collId)
+      if (crumb) return Object.values(crumb)[0]
+      if (collId === rootCollectionId.value && rootShortTitle.value) return rootShortTitle.value
+      return collConfig.value?.homePageSettings?.appNavBar?.collectionShortTitle || collId
     })
 
     // Methods
@@ -348,13 +406,22 @@ export default {
       imgUrl,
       imgHref,
       apiImgUrl,
-      apiImgHref
+      apiImgHref,
+      searchRoute,
+      isSearchPage,
+      isSearchOpened,
+      searchCollectionName
     }
   }
 }
 </script>
 
 <style scoped>
+/* Holds the search banner, right below. Where the navbar is fixed
+   (main.css .layout-navbar), that more specific rule keeps it fixed. */
+section {
+  position: relative;
+}
 nav {
   font-size: 26px;
   line-height: 1.2;
@@ -421,7 +488,9 @@ nav span.level-item:not(:last-child)::after {
 }
 .level-left {
   display: flex;
-  width: calc(100% - 60px);
+  /* Takes what the right side (search, API) leaves */
+  flex: 1 1 0;
+  min-width: 0;
   gap: 20px;
 
   font-family: var(--font-primary),sans-serif;
@@ -464,7 +533,38 @@ nav span.level-item:not(:last-child)::after {
   }
 }
 .level-right {
+  display: flex;
+  flex: none;
+  align-items: center;
   height: 50px !important;
+}
+/* Same gap from the API button as between the logo and the first title:
+   .logo-header margin-right + .level-left gap */
+.search-link {
+  display: flex;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  align-self: center;
+  align-items: center;
+  margin-right: calc(70px + 20px);
+}
+/* Search banner content over the navbar's content width: same padding as
+   the nav, at each breakpoint below */
+.navbar-search {
+  padding-left: calc((100% - var(--default-content-width)) / 2);
+  padding-right: calc((100% - var(--default-content-width)) / 2);
+}
+.search-icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  background-color: currentColor;
+  -webkit-mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
+  mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
 }
 .mobile-button {
   display: none;
@@ -499,7 +599,8 @@ ul.submenu a:hover {
 }
 
 @media screen and (max-width: 1320px) {
-  nav {
+  nav,
+  .navbar-search {
     padding-left: 20px;
     padding-right: 20px;
   }
@@ -507,6 +608,9 @@ ul.submenu a:hover {
 @media screen and (max-width: 1024px) {
   .logo-header {
     margin-right: 15px;
+  }
+  .search-link {
+    margin-right: calc(15px + 20px);
   }
 }
 @media screen and (max-width: 768px) {
@@ -521,11 +625,18 @@ ul.submenu a:hover {
     top:0;*/
     width: 100vw;
   }
+  .navbar-search {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
   .logo-header {
     width: 50px;
     min-width: 45px;
     max-width: unset;
     margin-right: 12px;
+  }
+  .search-link {
+    margin-right: calc(12px + 20px);
   }
   .level-left .level-item:not(:last-child),
   .level-right .level-item:not(:last-child) {
@@ -588,6 +699,12 @@ ul.submenu a:hover {
     display: none;
   }
 
+  /* Left of the 30px burger, one mobile margin away from it */
+  .search-link {
+    margin-left: 10px;
+    margin-right: calc(30px + var(--mobile-margin));
+  }
+
   .level-left {
     width: 100%;
     overflow: hidden;
@@ -601,15 +718,17 @@ ul.submenu a:hover {
     white-space: normal;
   }
 
+  /* 30x30 burger, centred in the 70px bar */
   .mobile-button {
     position: absolute;
     right: var(--mobile-margin);
-    top: 2px;
+    top: 20px;
     z-index: 2;
 
     display: flex;
     align-items: center;
-    width: 40px;
+    width: 30px;
+    height: 30px;
     background: var(--fill-color);
   }
   /*.level-left {

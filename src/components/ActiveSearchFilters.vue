@@ -253,6 +253,9 @@ function clearAll(){
   display: inline-flex;
   align-items: center;
   gap: 1rem;
+  /* Off the baseline, or the line box adds the descender space below the
+     button: the space under it would exceed the 12px above the search bar */
+  vertical-align: top;
 }
 
 /* The button's style lives in main.css, shared with the sidebar; only the

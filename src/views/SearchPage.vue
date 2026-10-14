@@ -1,12 +1,16 @@
 <template>
-  <div class="dots-ui collection-wrapper">
+  <div
+    class="dots-ui collection-wrapper"
+    :class="{ 'about-opened': isAboutOpened }"
+  >
     <CollectionHeader
       :collection-config="collConfig"
       :application-config="appConfig"
       :current-collection="currCollection"
       :collection-identifier="collectionId"
       :root-collection-identifier="rootCollectionId"
-      :show-about="false"
+      :show-about="true"
+      @about-opened="isAboutOpened = $event"
     />
     <div
       ref="stickyHeaderEl"
@@ -121,10 +125,7 @@
         </aside>
       </Transition>
       <div class="page-main">
-        <div
-          class="document-list list-mode"
-          :class="openedFacets.length > 0 ? 'with-opened-facets' : ''"
-        >
+        <div class="document-list list-mode">
           <ResourcesList
             :data="tableData"
             :columns-config="columns"
@@ -151,7 +152,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
 
 import CollectionHeader from '@/components/CollectionHeader.vue'
@@ -200,6 +201,7 @@ export default {
   setup(props) {
     const store = useStore()
     const router = useRouter()
+    const route = useRoute()
 
     const isDocProjectIdInc = computed(() => props.isDocProjectIdIncluded)
     const rootCollectionId = computed(() => props.rootCollectionIdentifier)
@@ -843,14 +845,36 @@ export default {
     const _existingState = _pid ? store.state.search.byProject[_pid] : null
     const _hasResults = (_existingState?.totalCount ?? 0) > 0
 
-    if (!_hasResults) {
+    // A search sent from the navbar banner (AppNavbar > NavbarSearch):
+    // ?q=<term>&mode=notice|fulltext. Applied, run, then dropped from the URL
+    // so the bar stays the only source of the query.
+    const applyRouteQuery = () => {
+      const { q, mode, ...otherQuery } = route.query
+      if (q === undefined && mode === undefined) return false
+
+      if (mode === 'fulltext' || mode === 'notice') {
+        search.setIsFulltextSearch(mode === 'fulltext')
+      }
+      inputTerm.value = typeof q === 'string' ? q : ''
+      router.replace({ query: otherQuery, hash: route.hash })
+      executeSearches()
+      return true
+    }
+
+    if (!applyRouteQuery() && !_hasResults) {
       executeSearches()
     }
+
+    // Banner search while this page is already open
+    watch(() => [route.query.q, route.query.mode], applyRouteQuery)
 
     // The sidebar sticks below the search header, whose height changes with
     // the number of active filter tags: a fixed value would be wrong from
     // the first filter, so measure it.
     const stickyHeaderEl = ref(null)
+
+    // The search bar's top space depends on it (--search-bar-offset)
+    const isAboutOpened = ref(false)
     let headerObserver = null
 
     onMounted(() => {
@@ -913,6 +937,7 @@ export default {
       resetRange,
       resetFacet,
       stickyHeaderEl,
+      isAboutOpened,
       sidebarOpen,
       toggleSidebar,
     }
@@ -925,15 +950,10 @@ export default {
   justify-content: center;
   flex-direction: column;
   width: 100%;
-  margin-top: 40px;
+  margin-top: 20px;
   padding-top: 0;
   padding-bottom: 25px;
   box-sizing: border-box;
-
-  &.with-opened-facets {
-    margin-top: 20px;
-    padding-top: 0;
-  }
 }
 
 a {
@@ -1093,9 +1113,28 @@ tr td.chevron-up a::before {
   margin-right: 0 !important;
 }
 
+/* Space above the search bar: clears the header buttons overhanging the
+   form, like the space above the text of the opened about panel
+   (CollectionHeader .home-article-wrapper). Back to the original 12px when
+   the bar is not right under the header: below the opened about panel. */
+.collection-wrapper {
+  --search-bar-offset: 45px;
+}
+.collection-wrapper.about-opened {
+  --search-bar-offset: 12px;
+}
+@media screen and (max-width: 640px) {
+  .collection-wrapper:not(.about-opened) {
+    --search-bar-offset: 27px;
+  }
+}
+
+/* Once stuck, the header sits above the viewport top by the extra space,
+   so the bar keeps its original 12px: changing the margin instead would
+   make the list below jump as the header sticks */
 .sticky-search-header {
   position: sticky;
-  top: 0;
+  top: calc(12px - var(--search-bar-offset));
   z-index: 22;
   background-color: #ffffff;
   border-top-left-radius: 0;
@@ -1105,7 +1144,7 @@ tr td.chevron-up a::before {
   display: flex;
   align-items: center;
   width: 100%;
-  margin : 2px 0 0 0;
+  margin: 0;
   padding: 0 0 0 0;
 }
 
@@ -1115,7 +1154,7 @@ tr td.chevron-up a::before {
   flex-wrap: nowrap !important;
   align-items: flex-start !important;
   gap: 0;
-  margin-top: 12px;
+  margin-top: var(--search-bar-offset);
   padding-left: 12px;
 }
 .hide-filters-button {
@@ -1146,7 +1185,9 @@ tr td.chevron-up a::before {
      table's height and has nothing to stick within. No scroll of its own:
      the list follows the page. */
   position: sticky;
-  top: var(--search-header-height, 0px);
+  /* Bottom of the stuck search header, which sticks above the viewport top
+     by the space it hides (see .sticky-search-header) */
+  top: calc(var(--search-header-height, 0px) + 12px - var(--search-bar-offset));
   align-self: flex-start;
 }
 
@@ -1321,9 +1362,21 @@ tr td.chevron-up a::before {
   border: none;
   border-radius: 0 6px 6px 0;
   color: var(--fill-color);
-  background: var(--fill-color) url(../assets/images/bouton_loupe.svg) center no-repeat;
-  background-size: cover;
+  /* bouton_loupe.svg carries its own red background: the collection colour
+     here, with the magnifier drawn over it in white (as NavbarSearch.vue) */
+  background-color: var(--fill-color);
   cursor: pointer;
+
+  &::after {
+    content: '';
+    display: block;
+    width: 55%;
+    height: 55%;
+    margin: auto;
+    background-color: #FFFFFF;
+    -webkit-mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
+    mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
+  }
 }
 .search-submit:disabled {
   opacity: 0.4;
@@ -1918,7 +1971,7 @@ tr.row-details :deep(em),
      not exist and the offset would leave a transparent gap. */
   @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
     .sticky-search-header {
-      top: 6px;
+      top: calc(6px + 12px - var(--search-bar-offset));
     }
   }
 
