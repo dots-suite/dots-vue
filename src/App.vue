@@ -342,6 +342,23 @@ export default {
 
       syncThemeColor()
     }
+    // A module runs once and its listeners stay: custom JS delegates from document
+    const customJsConfs = Object.fromEntries(Object.entries(import.meta.glob('confs/**/*.customJs.js')).map(([key, value]) => {
+      return [key.split('/').at(-1).replace('.customJs.js', ''), value]
+    }))
+    const getCustomJs = async () => {
+      const name = collConfig.value.collectionCustomJs
+      if (!name) return
+      if (!customJsConfs[name]) {
+        console.warn(`App.vue: no ${name}.customJs.js in the settings`)
+        return
+      }
+      try {
+        await customJsConfs[name]()
+      } catch (error) {
+        console.error(`App.vue: ${name}.customJs.js failed`, error)
+      }
+    }
     const removeCustomCss = () => {
       const styleTags = [...document.querySelectorAll('style')]
       styleTags.forEach((tag) => {
@@ -497,6 +514,7 @@ export default {
           } else if (customCss.value) {
             removeCustomCss()
           }
+          await getCustomJs()
 
           if (!route.params.id) {
             document.title =
