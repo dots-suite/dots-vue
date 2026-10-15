@@ -2,7 +2,7 @@
   <div class="document wrapper">
     <div
       class="row"
-      :class="currentLevelIndicator === 'renderToc' ? 'dots-ui' : ''"
+      :class="currentLevelIndicator === 'renderToc' ? 'document-description' : ''"
     >
       <Suspense @resolve="scrollTo()">
         <component :is="customDocument" />
