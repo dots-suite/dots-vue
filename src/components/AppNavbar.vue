@@ -549,8 +549,8 @@ nav span.level-item:not(:last-child)::after {
   align-items: center;
   height: 50px !important;
 }
-/* Same gap from the API button as between the logo and the first title:
-   .logo-header margin-right + .level-left gap */
+/* Right-aligned, next to the API button with the app's standard 12px gap
+   between buttons (on phones, the same 12px from the burger, see below) */
 .search-link {
   display: flex;
   flex: none;
@@ -561,7 +561,7 @@ nav span.level-item:not(:last-child)::after {
   cursor: pointer;
   align-self: center;
   align-items: center;
-  margin-right: calc(70px + 20px);
+  margin-right: var(--mobile-margin);
   position: relative;
   isolation: isolate;
 }
@@ -641,9 +641,7 @@ ul.submenu a:hover {
   .logo-header {
     margin-right: 15px;
   }
-  .search-link {
-    margin-right: calc(15px + 20px);
-  }
+
 }
 @media screen and (max-width: 768px) {
   nav {
@@ -667,9 +665,7 @@ ul.submenu a:hover {
     max-width: unset;
     margin-right: 12px;
   }
-  .search-link {
-    margin-right: calc(12px + 20px);
-  }
+
   .level-left .level-item:not(:last-child),
   .level-right .level-item:not(:last-child) {
     margin-right: .5rem;
