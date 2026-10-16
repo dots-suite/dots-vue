@@ -347,6 +347,32 @@ export default {
     const customJsConfs = Object.fromEntries(Object.entries(import.meta.glob('confs/**/*.customJs.js')).map(([key, value]) => {
       return [key.split('/').at(-1).replace('.customJs.js', ''), value]
     }))
+    // Fonts stylesheet named by collectionCustomFonts (<name>.customFonts.css in
+    // the custom settings), inherited by the collections like
+    // collectionCustomCss. Built by Vite, unlike the custom CSS, so that its
+    // url() to the font files resolve; linked before #customCss.
+    const customFontsUrls = Object.fromEntries(Object.entries(
+      import.meta.glob('confs/**/*.customFonts.css', { query: '?url', import: 'default', eager: true })
+    ).map(([key, url]) => [key.split('/').at(-1).replace('.customFonts.css', ''), url]))
+
+    const applyCustomFonts = () => {
+      const url = customFontsUrls[collConfig.value.collectionCustomFonts]
+      let el = document.getElementById('customFonts')
+      if (!url) {
+        el?.remove()
+        return
+      }
+      if (!el) {
+        el = document.createElement('link')
+        el.id = 'customFonts'
+        el.rel = 'stylesheet'
+        const customCssEl = document.getElementById('customCss')
+        if (customCssEl) document.head.insertBefore(el, customCssEl)
+        else document.head.appendChild(el)
+      }
+      if (el.getAttribute('href') !== url) el.setAttribute('href', url)
+    }
+
     const getCustomJs = async () => {
       const name = collConfig.value.collectionCustomJs
       if (!name) return
@@ -515,6 +541,7 @@ export default {
           } else if (customCss.value) {
             removeCustomCss()
           }
+          applyCustomFonts()
           await getCustomJs()
 
           if (!route.params.id) {
