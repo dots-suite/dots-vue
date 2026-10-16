@@ -14,7 +14,10 @@
       <div class = "search-bar-row">
         <div class="tile is-child search-form">
           <div class="search-bar-row">
-            <div class="search-input-wrapper">
+            <div
+              class="search-input-wrapper"
+              :class="{ 'has-error': isInvalidQuery }"
+            >
               <!-- Fulltext or Metadata search selector -->
               <div class="search-mode-wrapper">
                 <!-- SELECT BUTTON -->
@@ -58,7 +61,8 @@
                   <span aria-hidden="true"></span>
                 </button>
               </div>
-              <!-- MESSAGE ERROR -->
+              <!-- MESSAGE ERROR: in the field, on its right, before the cross;
+                   under the whole bar from 1024px down -->
               <div v-if="isInvalidQuery" class="search-error-message" role="alert">
                 {{ invalidQueryMessage }}
               </div>
@@ -155,7 +159,7 @@
             :counts="search.totalCount.value"
             :is-elastic-search="true"
             :total-buckets="search.bucketCount.value"
-            :is-with-highlights="!!(isFulltextSearch && inputTerm.trim() && inputTerm.trim().length > 0)"
+            :is-with-highlights="searchedWithHits"
             :collection-indexed="search.collectionIndexed.value"
             @sort-change="updateSort"
             @page-change="changePage"
@@ -175,6 +179,7 @@ import { useRoute, useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
 
 import CollectionHeader from '@/components/CollectionHeader.vue'
+import { getInvalidQueryMessage } from '@/composables/search-page'
 import ResourcesList from '@/components/ResourcesList.vue'
 import SearchFacets from '@/components/SearchFacets.vue'
 import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
@@ -249,9 +254,8 @@ export default {
     // Documents found, as the table counts them: in full text with a term,
     // the documents holding hits (buckets), not the hits
     const resultsDocumentCount = computed(() => {
-      const withHits = isFulltextSearch.value && inputTerm.value.trim().length > 0
       const buckets = search.bucketCount.value
-      return withHits && buckets > 0 ? buckets : search.totalCount.value
+      return searchedWithHits.value && buckets > 0 ? buckets : search.totalCount.value
     })
 
     // A filter changed: new results, and the page back up to their top if
@@ -728,6 +732,7 @@ export default {
       search.setPageNum(1)
 
       await search.execute()
+      searchedWithHits.value = isFulltextSearch.value && !!t
     }
 
     const initialState = {
@@ -747,6 +752,11 @@ export default {
       set: (v) => search.setIsFulltextSearch(v)
     })
 
+    // Whether the results shown come from a full-text search with a term
+    // (hits column, documents count): set when a search runs, not as the
+    // field or the mode change, nor while the query is invalid
+    const searchedWithHits = ref(isFulltextSearch.value && !!search.term.value)
+
     const isModeOpen = ref(false)
 
     const searchTypeOptions = [
@@ -761,47 +771,11 @@ export default {
       }
     })
 
-    const hasFieldSyntax = computed(() => {
-      if (!isFulltextSearch.value) return false
-      return /[a-zA-Z0-9_.-]+:/.test(inputTerm.value || '')
-    })
-
-    // Blocked when every unit is 2 characters or less, or when nothing is left
-    // but operators: such queries match almost everything and cost a lot.
-    // A quoted phrase is one unit.
-    const isTooShortQuery = computed(() => {
-      const raw = (inputTerm.value || '').trim()
-      if (!raw) return false
-
-      const units = []
-      const bare = raw.replace(/"([^"]*)"/g, (match, phrase) => {
-        units.push(phrase.trim())
-        return ' '
-      })
-      units.push(
-        ...bare
-          .replace(/[*?~^()+\-]/g, ' ')
-          .split(/\s+/)
-          .filter(Boolean)
-      )
-      // No unit left means operators only ("*", "**"): nothing to search on.
-      return units.length === 0 || units.every(u => u.length <= 2)
-    })
-
-    const isInvalidQuery = computed(
-      () => hasFieldSyntax.value || isTooShortQuery.value
+    // Why the query cannot be searched, '' when it can (search-page.js)
+    const invalidQueryMessage = computed(() =>
+      getInvalidQueryMessage(inputTerm.value, isFulltextSearch.value)
     )
-
-    const invalidQueryMessage = computed(() => {
-      if (hasFieldSyntax.value) {
-        return 'Recherches "field: " non supportées en plein texte'
-      }
-
-      if (isTooShortQuery.value) {
-        return 'Saisissez au moins 3 caractères'
-      }
-      return ''
-    })
+    const isInvalidQuery = computed(() => invalidQueryMessage.value !== '')
 
     const currentSearchLabel = computed(() => {
       return searchTypeOptions.find(o => o.value === searchType.value)?.text
@@ -1030,6 +1004,7 @@ export default {
       removeActiveFacet,
       removeActiveRange,
       clearAllFilters,
+      searchedWithHits,
       isFulltextSearch,
       toggleModeDropdown,
       currentSearchLabel,
@@ -1385,7 +1360,7 @@ tr td.chevron-up a::before {
   border: none;
   border-radius: 0;
   /* Inside the bar's 1px border: the bar stays as high as the button */
-  height: calc(var(--button-size) * 1.1 - 2px);
+  height: calc(var(--button-size) - 2px);
   box-shadow: none;
   padding-bottom: 6px;
   padding-top: 6px;
@@ -1394,75 +1369,111 @@ tr td.chevron-up a::before {
   outline: none !important;
   box-shadow: none !important;
 }
+/* Invalid query: red text, a red outline inside the bar's border (an
+   inset ring: nothing spills over the selector or the button) */
 .search-form .input.input-error,
 .search-form .input.input-error:focus {
-  color: red !important;
-  border: 1px solid red !important;
-  box-shadow: 0 0 0 1px red !important;
+  padding-right: 50%;
+  color: #d33 !important;
+  border: none !important;
+  box-shadow: inset 0 0 0 1px #d33 !important;
 }
+/* In the field, right-aligned before the clear cross (10px + 22px) */
 .search-error-message {
   position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
-  text-align: center;
+  top: 50%;
+  right: 40px;
+  max-width: calc(50% - 48px);
+  transform: translateY(-50%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   color: #d33;
+  pointer-events: none;
+}
+/* From 1024px down the field is too narrow for it: under the field, out
+   of the bar's border; the bar keeps its place, the filters row below
+   moves down to make room */
+@media screen and (max-width: 1024px) {
+  .search-form .input.input-error,
+  .search-form .input.input-error:focus {
+    padding-right: 40px;
+  }
+  /* across the whole bar: from the bar's left border to past the
+     wrapper, under the submit button */
+  .search-error-message {
+    top: calc(100% + 5px);
+    left: -1px;
+    right: calc(-1 * var(--button-size));
+    max-width: none;
+    transform: none;
+    text-align: center;
+    white-space: normal;
+  }
+  /* room for the error under the bar: one line here... */
+  .search-input-wrapper.has-error {
+    margin-bottom: 30px;
+  }
+}
+@media screen and (max-width: 768px) {
+  /* ...two lines from 768px down */
+  .search-input-wrapper.has-error {
+    margin-bottom: 52px;
+  }
 }
 
-/* CLEAR SEARCH ICON: a plain cross in a 36px hit area */
+/* CLEAR SEARCH ICON: a cross in a grey circle */
 .search-clear {
   position: absolute;
-  right: 6px;
   top: 50%;
-  transform: translateY(-50%);
-
-  width: 36px;
-  height: 36px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   padding: 0;
-
+  transform: translateY(-50%);
   border: none;
   background: transparent;
   cursor: pointer;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  & span {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #b8b8b8;
+    border-radius: 50%;
+  }
 
-.search-clear span {
-  position: relative;
-  width: 18px;
-  height: 18px;
-}
+  & span::before,
+  & span::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 1.5px;
+    background-color: #b8b8b8;
+  }
 
-/* CROSS */
-.search-clear span::before,
-.search-clear span::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 18px;
-  height: 2px;
-  border-radius: 1px;
-  background-color: #5c5c5c;
-  transform-origin: center;
-}
+  & span::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
 
-.search-clear span::before {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
+  & span::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
 
-.search-clear span::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
+  &:hover span {
+    border-color: #666;
+  }
 
-/* hover */
-.search-clear:hover span::before,
-.search-clear:hover span::after {
-  background-color: #1a1a1a;
+  &:hover span::before,
+  &:hover span::after {
+    background-color: #666;
+  }
 }
 
 /* CLEAR INPUTS */
@@ -1483,8 +1494,8 @@ tr td.chevron-up a::before {
 
 /* SEARCH BUTTON */
 .search-submit {
-  width: calc(var(--button-size) * 1.1);
-  height: calc(var(--button-size) * 1.1) !important;
+  width: var(--button-size);
+  height: var(--button-size) !important;
   padding: 0;
   border: none;
   border-radius: 0 6px 6px 0;
@@ -1511,7 +1522,7 @@ tr td.chevron-up a::before {
   flex: none;
   align-items: center;
   gap: 8px;
-  height: calc(var(--button-size) * 1.1);
+  height: var(--button-size);
   margin: 0 12px 0 16px;
   padding: 0 16px;
   border: 1px solid var(--fill-color);
@@ -1542,10 +1553,10 @@ tr td.chevron-up a::before {
 }
 
 /* optionnel: fusion visuelle */
-/* The search bar follows the app's buttons: 44px for --button-size at 40,
-   33px when it drops to 30 under 768px. */
+/* The search bar follows the app's buttons: --button-size, 40px, 30px
+   under 768px. */
 .search-mode-trigger {
-  height: calc(var(--button-size) * 1.1 - 2px);
+  height: calc(var(--button-size) - 2px);
   border-radius: 6px 0 0 6px;
 }
 
@@ -2071,7 +2082,7 @@ tr.row-details :deep(em),
   /* Reset: icon only */
   .search-reset {
     justify-content: center;
-    width: calc(var(--button-size) * 1.1);
+    width: var(--button-size);
     margin-left: 8px;
     padding: 0;
   }
@@ -2173,4 +2184,27 @@ tr.row-details :deep(em),
   }
 }
 
+
+/* The mode list's options no bigger than the selector button itself: its
+   height (inside a 1px border) and side padding */
+.search-mode-option {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: calc(var(--button-size) - 2px);
+  padding: 0 14px;
+}
+@media screen and (max-width: 768px) {
+  .search-mode-option {
+    padding: 0 8px;
+  }
+}
+
+/* The mode list as wide as its words (never wider than the selector), no
+   empty space after them */
+.search-mode-dropdown {
+  right: auto;
+  width: max-content;
+  min-width: 0;
+}
 </style>
