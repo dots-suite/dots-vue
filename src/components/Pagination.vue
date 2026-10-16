@@ -209,7 +209,9 @@ function onBlur() {
 }
 
 .pagination-documents-count {
-  align-self: flex-end;
+  /* Its text centred on the pagination buttons */
+  align-self: center;
+  line-height: 1;
   margin-right: auto;
   font-family: var(--font-primary), sans-serif;
   font-weight: 700;
