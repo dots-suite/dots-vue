@@ -1,17 +1,14 @@
 <template>
   <div class="">
-    <div class="tiles">
-      <div class="tile page-header app-width-padding">
-        <div class="tile is-child">
-          <div class="is-flex is-flex-direction-column title-tile">
-            <p class="title">
-              {{ collectionAltTitle ? collectionAltTitle : currentCollection.title }}
-            </p>
-            <h1>Terms of service</h1>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Same compact banner as the about page (banner from the settings
+         cascade) -->
+    <CollectionHeader
+      :collection-config="collectionConfig"
+      :application-config="applicationConfig"
+      :current-collection="currentCollection"
+      :collection-identifier="collectionIdentifier"
+      :root-collection-identifier="rootCollectionIdentifier"
+    />
     <section class="main app-width-padding">
       <div
         id="article"
@@ -90,13 +87,24 @@
   </div>
 </template>
 <script>
-import { ref, watch } from 'vue'
+import CollectionHeader from '@/components/CollectionHeader.vue'
 
 export default {
   name: 'TermsOfServiceView',
+  components: {
+    CollectionHeader
+  },
   props: {
     collectionConfig: {
       type: Object,
+      required: true
+    },
+    applicationConfig: {
+      type: Object,
+      required: true
+    },
+    rootCollectionIdentifier: {
+      type: String,
       required: true
     },
     collectionIdentifier: {
@@ -108,19 +116,11 @@ export default {
       required: true
     }
   },
-  setup (props) {
-    const collectionAltTitle = ref(props.collectionConfig.homePageSettings.pageHeader.collectionAltTitle)
-    const currCollection = ref(props.currentCollection)
+  setup () {
     const websiteURL = window.location.origin
     const lastModified = new Intl.DateTimeFormat('fr-FR', { year: 'numeric', month: 'numeric', day: 'numeric' }).format(new Date(document.lastModified)).replace(/\./g, '-')
 
-    watch(props, (newProps) => {
-      collectionAltTitle.value = newProps.collectionConfig.homePageSettings.pageHeader.collectionAltTitle
-      currCollection.value = newProps.currentCollection
-    }, { deep: true, immediate: true })
-
     return {
-      collectionAltTitle,
       websiteURL,
       lastModified
     }
@@ -166,36 +166,9 @@ section.main {
 #article h2:first-child {
   margin-top: 0;
 }
-.tile.is-child {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-.title-tile {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  width: 100%;
-  margin-top: 30px;
-  margin-bottom: 30px;
-}
-.page-header h1 {
-  margin: 0;
-  padding-top: 0;
-  padding-bottom: 20px;
-  font-family: var(--font-primary), sans-serif;
-  font-size: 25px;
-  font-weight: 900;
-  color: var(--fill-color);
-  line-height: 33px;
-  text-transform: none;
-}
-
 @media screen and (max-width: 1320px) {
 
-  #article,
-  .tile.is-child {
+  #article {
     padding: 0 50px !important;
   }
 
@@ -203,8 +176,7 @@ section.main {
 
 @media screen and (max-width: 1024px) {
 
-  #article,
-  .tile.is-child {
+  #article {
     padding: 0 !important;
   }
 

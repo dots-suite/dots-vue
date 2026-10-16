@@ -228,6 +228,7 @@ export default {
     const pageSubtitle = computed(() => {
       if (isSearchPage.value) return 'Recherche'
       if (route.name === 'About') return aboutBttnTxt.value
+      if (route.name === 'Terms') return 'Terms of service'
       return ''
     })
 
