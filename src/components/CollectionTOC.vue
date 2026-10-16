@@ -25,7 +25,7 @@
       class="document-card collection-toc-component"
     >
       <template v-if="item['@type'] === 'Collection' || item.citeType === 'Collection'">
-        <div class="collection-wrapper">
+        <div class="dots-ui collection-wrapper">
           <div
             class="card-header"
           >
@@ -1036,6 +1036,7 @@ export default {
   width: 100%;
   padding-top: 25px;
   padding-bottom: 25px;
+  box-sizing: border-box;
 }
 
 .collection-toc-area.single-resource {
@@ -1207,6 +1208,7 @@ button.toc-toggle {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 30px;
+  margin-bottom: 30px;
 }
 .toc-mode .document-card {
   display: flex;
@@ -1564,7 +1566,7 @@ button.toc-toggle {
   margin-right: 20px;
   background-color: var(--fill-color) !important;
   border-radius: 25px 25px 0 25px;
-
+  box-sizing: border-box;
   color: white;
 }
 

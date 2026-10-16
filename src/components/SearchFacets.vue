@@ -4,34 +4,41 @@
     class="search-facets"
   >
     <div class="filters-header">
-      <button
-        type="button"
-        class="sidebar-toggle-btn is-opened"
-        title="Fermer les filtres"
-        aria-label="Fermer les filtres"
-        @click="$emit('toggle-sidebar')"
-      >
-        <SearchFilterIcon type="check" />
-      </button>
-
       <div
         class="filters-header-title"
         @click="toggleAllFacets"
       >
         <span>Filtres</span>
+      </div>
+
+      <!-- Narrow screens, where the panel covers the search bar: the same
+           controls as under it (Filtres button, which closes the panel,
+           counter and caret, tags), "Tout effacer" as an icon by the tags -->
+      <ActiveSearchFilters
+        class="filters-header-mobile"
+        :facets="activeFacets"
+        :facets-config="facets"
+        :ranges="ranges"
+        :temporal-facets="temporalFacets"
+        :sidebar-open="true"
+        clear-all="icon"
+        @toggle-sidebar="$emit('toggle-sidebar')"
+        @clear-all="$emit('clear-all')"
+        @remove-facet="$emit('remove-facet-value', $event)"
+        @remove-range="$emit('reset-range', $event)"
+      />
+
+      <button
+        type="button"
+        class="filters-toggle-all"
+        :aria-expanded="allOpened"
+        :aria-label="allOpened ? 'Replier tous les filtres' : 'Déplier tous les filtres'"
+        @click="toggleAllFacets"
+      >
         <i
           class="arrow"
           :class="{ opened: allOpened }"
         />
-      </div>
-
-      <button
-        v-if="hasActiveFilters"
-        type="button"
-        class="filters-reset-btn"
-        @click="$emit('clear-all')"
-      >
-        Réinitialiser
       </button>
     </div>
 
@@ -46,12 +53,17 @@
         @click="toggleOpen(facet.id)"
       >
         <span class="facet-header-label">
-          {{ facet.label }} {{ availableFacetCount(facet) ? `(${availableFacetCount(facet)})` : '' }}
-          <i
-            class="arrow"
-            :class="{ opened: isOpen(facet.id) }"
-          />
+          {{ facet.label }}
+          <!-- Number of values to choose from, was "(n)" -->
+          <span
+            v-if="availableFacetCount(facet)"
+            class="facet-count"
+          >{{ availableFacetCount(facet) }}</span>
         </span>
+        <i
+          class="arrow"
+          :class="{ opened: isOpen(facet.id) }"
+        />
       </div>
 
       <!-- Valeurs actuellement sélectionnées pour CETTE facette, affichées
@@ -166,6 +178,18 @@
       :style="{ height: dropdownSpacer + 'px' }"
       aria-hidden="true"
     />
+
+    <!-- Narrow screens: actions kept at the bottom of the panel, after the
+         spacer, so an open value menu ends above them -->
+    <div class="filters-footer">
+      <button
+        type="button"
+        class="filters-footer-show"
+        @click="$emit('toggle-sidebar')"
+      >
+        Voir {{ resultsLabel }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -173,7 +197,7 @@
 
 import { computed, nextTick, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import TemporalFacetSlider from './TemporalFacetSlider.vue'
-import SearchFilterIcon from '@/assets/images/SearchFilterIcon.vue'
+import ActiveSearchFilters from './ActiveSearchFilters.vue'
 
 const props = defineProps({
 
@@ -204,6 +228,12 @@ const props = defineProps({
     config:{
         type: Object,
         default: () => ( {} )
+    },
+
+    // Number of results, for "Voir les n documents" (mobile footer)
+    resultsCount:{
+        type: Number,
+        default: null
     }
 
 })
@@ -226,6 +256,13 @@ const hasActiveFilters = computed(() =>
   props.activeFacets.length > 0 ||
   Object.keys(props.ranges).length > 0
 )
+
+const resultsLabel = computed(() => {
+  const n = props.resultsCount
+  if (n == null) return 'les résultats'
+  if (n === 1) return 'le document'
+  return `les ${n} documents`
+})
 
 watch(
   () => props.ranges,
@@ -343,8 +380,14 @@ function updateDropdownSpacer() {
 
     const rootStyle = getComputedStyle(root)
 
-    const contentBottom = lastBox.getBoundingClientRect().bottom +
-        parseFloat(rootStyle.paddingBottom || 0)
+    // What follows the last facet: the footer's top margin where it shows
+    // (narrow screens, it then covers the panel's bottom padding), else
+    // that padding
+    const footer = root.querySelector('.filters-footer')
+    const below = footer && footer.offsetParent !== null
+        ? parseFloat(getComputedStyle(footer).marginTop || 0)
+        : parseFloat(rootStyle.paddingBottom || 0)
+    const contentBottom = lastBox.getBoundingClientRect().bottom + below
     const needed = dropdown.getBoundingClientRect().bottom +
         DROPDOWN_BOTTOM_MARGIN - contentBottom
 
@@ -732,35 +775,6 @@ watch(
   gap: .5rem;
 }
 
-.filters-header > .sidebar-toggle-btn,
-.filters-header > .filters-reset-btn {
-  display: none;
-}
-
-/* Same look as .clearall-btn in the active filters banner. */
-.filters-reset-btn {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  padding: .35rem .85rem;
-  background: none;
-  border: none;
-  border-radius: 20px;
-  font-family: "Barlow", sans-serif;
-  font-size: .85rem;
-  font-weight: 100;
-  color: #000;
-  cursor: pointer;
-}
-
-.filters-reset-btn:hover,
-.filters-reset-btn:focus-visible {
-  background: #b9192f;
-  border-color: #b9192f;
-  color: #fff;
-}
-
 @media screen and (max-width: 768px) {
   /* The sidebar scrolls: the header stays reachable at the top. Negative
      margins cancel .search-facets' side padding, or content would show
@@ -777,13 +791,74 @@ watch(
     background: #fff;
   }
 
-  .filters-header > .sidebar-toggle-btn {
-    display: inline-flex;
+  /* Tighter around the Filtres button; the open/close-all arrow on the
+     button's line, at the right, so the tags' line spans the width */
+  .filters-header {
+    position: sticky;
+    align-items: flex-start;
+    /* the panel's top space, kept above the header once it sticks */
+    padding-top: 10px;
+    padding-bottom: 8px;
   }
 
-  .filters-header > .filters-reset-btn {
-    display: inline-block;
+  .filters-header-title {
+    display: none !important;
   }
+
+  .filters-header-mobile {
+    display: flex !important;
+    padding: 0;
+  }
+
+  /* A line between the controls and the current filters' tags */
+  .filters-header-mobile :deep(.filter-tags) {
+    padding-top: 8px;
+    border-top: 1px solid #e6e6e6;
+  }
+  /* On the first row of tags, under the line */
+  .filters-header-mobile :deep(.clearall-icon-btn) {
+    top: 8px;
+  }
+
+  /* 32px, centred on the Filtres button, under the header's top padding */
+  .filters-toggle-all {
+    position: absolute;
+    top: calc(10px + (var(--button-size) - 32px) / 2);
+    right: 1rem;
+    margin-right: 0;
+  }
+
+  /* Kept at the bottom of the scrolling panel, across its side padding */
+  .filters-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 21;
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    margin: 16px -24px -24px;
+    padding: 12px 24px 20px;
+    border-top: 1px solid #e6e6e6;
+    background: #fff;
+  }
+
+}
+
+/* Wide screens: the panel sits beside the search bar and its controls */
+.filters-header-mobile,
+.filters-footer {
+  display: none;
+}
+
+.filters-footer-show {
+  flex: 1;
+  height: 48px;
+  border: none;
+  border-radius: 6px;
+  background: var(--fill-color);
+  color: #fff;
+  font: 600 16px var(--font-primary), sans-serif;
+  cursor: pointer;
 }
 
 .filters-header-title{
@@ -793,11 +868,49 @@ watch(
   color: #000000;
   font-family: "Barlow", sans-serif;
   display:flex;
-  align-items:center;
+  /* the total's figure on the title's text line */
+  align-items:baseline;
   cursor:pointer;
   user-select:none;
   margin: 0;
   gap: .5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Open/close all, on the right in black, as each facet's arrow */
+.filters-toggle-all{
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  /* its arrow lines up with the facets' (header padding + box border) */
+  margin-right: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+/* Unlike each facet's caret, a short line on the triangle's base side
+   (open/close all): 2px, 2px off it. The flip turns about the whole mark's
+   centre, kept centred in the button. */
+.filters-toggle-all .arrow{
+  position: relative;
+  margin-top: 4px;
+  border-top-color: #1a1a1a;
+  transform-origin: 50% 1px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -5px;
+    width: 10px;
+    height: 2px;
+    background-color: #1a1a1a;
+  }
 }
 
 .facet-box {
@@ -815,11 +928,35 @@ watch(
   font-weight:600;
 }
 
-/* Label + flèche "déplier" regroupés à gauche du header */
+/* Label on the left, the black open/close arrow on the right */
+.facet-header{
+  gap: .6rem;
+}
+/* Baseline: the count's figure sits on the label's text line */
 .facet-header-label{
   display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  flex: 1;
+  min-width: 0;
+}
+/* Pale: a count of values, not of active filters (filled badges) */
+.facet-count{
+  display: inline-flex;
   align-items: center;
-  gap: .4rem;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border-radius: 11px;
+  background-color: color-mix(in srgb, var(--fill-color) 12%, #ffffff);
+  color: var(--fill-color);
+  font: 500 12px var(--font-primary), sans-serif;
+}
+.facet-header .arrow{
+  flex: none;
+  border-top-color: #1a1a1a;
 }
 
 /* Valeurs sélectionnées de cette facette, sous son header (visible même

@@ -1,5 +1,5 @@
 <template>
-  <article class="documentation">
+  <article class="dots-ui documentation">
     <div class="tiles">
       <div class="tile page-header app-width-padding">
         <div class="tile is-child">

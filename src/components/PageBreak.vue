@@ -82,12 +82,12 @@ export default {
   position: relative;
   float: left;
 }
-.pb {
-  position: absolute;
-  left: -72px;
-}
 .pb-component:hover {
   cursor: pointer;
+}
+.pb-component .pb {
+  position: absolute;
+  left: -72px;
 }
 .pb-thumbnail {
   max-width: 60px;

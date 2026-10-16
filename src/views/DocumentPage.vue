@@ -3,7 +3,7 @@
     class="is-flex is-flex-direction-column"
     :class="viewModeCssClass"
   >
-    <div class="navigation-row-top-container" id="navigation-row-top-container">
+    <div class="dots-ui navigation-row-top-container" id="navigation-row-top-container">
       <div class="navigation-row-top app-width-margin">
         <div class="ariane-collection-top">
           <div
@@ -188,7 +188,7 @@
       </div>
     </div>
     <nav
-      class="navigation-row app-width-padding"
+      class="dots-ui navigation-row app-width-padding"
       aria-label="Navigation du document"
     >
       <div class="navigation-document">
@@ -300,7 +300,7 @@
       </div>
     </nav>
     <div
-      class="controls app-width-margin"
+      class="dots-ui controls app-width-margin"
       :class="isControlsOpened ? 'is-opened' : ''"
       role="toolbar"
       aria-label="Options d’affichage du document"
@@ -392,7 +392,7 @@
       class="document-area is-flex app-width-margin"
       :class="tocMenuCssClass"
     >
-      <div class="toc-area-aside toc-content">
+      <div class="dots-ui toc-area-aside toc-content">
         <aside id="aside">
           <nav>
             <nav>
@@ -423,6 +423,7 @@
             :key="resourceId + currentLevelIndicator"
             :is-doc-project-id-included="isDocProjectIdInc"
             :media-type-endpoint="collConfig.mediaTypeEndpoint"
+            :renderer="collConfig.renderer"
             :project-identifier="docProjectId"
             :iiif-manifest="manifest"
             :level="currentLevel"
@@ -445,6 +446,7 @@
             :key="refId + editorialLevel"
             :is-doc-project-id-included="isDocProjectIdInc"
             :media-type-endpoint="collConfig.mediaTypeEndpoint"
+            :renderer="collConfig.renderer"
             :project-identifier="docProjectId"
             :iiif-manifest="manifest"
             :level="currentLevel"
@@ -2008,13 +2010,10 @@ export default {
 </script>
 <style>
 
-.metadata-area {
-  /*margin-top: 15px !important;
-  margin-bottom: 15px !important;*/
-}
 .metadata-area .columns {
   margin: 0;
 }
+
 .toc-area {
   width: 100%;
   padding: 0;
@@ -2041,13 +2040,14 @@ export default {
   }
 }
 .toc-area-content {
-  background-color: #e4e4e4;
-  border-radius: 0 0 6px 6px;
   display: none;
 }
 .toc-area.is-opened .toc-area-header {
   background-color: #f1f1f1;
   border-radius: 6px 6px 0 0;
+}
+.toc-area-header a {
+  color: inherit;
 }
 .toc-area.is-opened .toc-area-content {
   display: block;
@@ -2102,7 +2102,6 @@ export default {
   border: none;
   box-shadow: none;
 }
-
 .toc-area-aside a,
 .toc-area-content a {
   font-size: var(--font-toc-metadata-size);
@@ -2110,6 +2109,10 @@ export default {
 }
 
 .controls {
+  position: sticky;
+  top: 85px;
+  z-index: 15; /* above document-area layer */
+
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -2117,15 +2120,9 @@ export default {
   width: 100%;
   padding-top: 10px;
   padding-bottom: 10px;
-
-  z-index: 100;
   pointer-events: none;
+  box-sizing: border-box;
 }
-.controls button {
-  display: flex;
-  pointer-events: auto;
-}
-
 .controls-list {
   position: absolute;
   top: 64px;
@@ -2144,18 +2141,16 @@ export default {
     display: none;
   }
 }
-
 .controls button {
-  /* remove default button behavior */
   appearance: none;
   -webkit-appearance: none;
 
+  display: flex;
+  pointer-events: auto;
   background: white;
   border: none;
-
   padding: 0;
   margin: 0;
-
   cursor: pointer;
 }
 .controls-list button {
@@ -2163,7 +2158,6 @@ export default {
   align-items: center;
   justify-content: center;
 }
-
 .controls-toggle .icon-wrapper {
   color: var(--fill-color);
 }
@@ -2174,7 +2168,6 @@ export default {
   /* même couleur que stroke pour que le contour disparaisse visuellement */
   border: 1px solid var(--fill-color);
 }
-
 .controls .notes-btn {
   color: #C3C3C3;
 }
@@ -2182,7 +2175,6 @@ export default {
   outline: 2px solid #B9192F;
   outline-offset: 2px;
 }
-
 /* former pdf & xml button to adapt : where ?
 .controls a.pdf-btn {
   background: url(../assets/images/b_PDF.svg) center / cover no-repeat;
@@ -2202,10 +2194,17 @@ export default {
 .toc-area #aside header {
   display: none;
 }
+
+/* Override the "html" selector CSS rules of the document-renderer */
 .document-views {
   width: 100%;
   min-height: 70vh;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  box-sizing: border-box;
 }
+
 .toc-area-aside {
   display: none;
 }
@@ -2251,25 +2250,8 @@ export default {
   max-width: calc(100vw - 20px);
 }
 
-/* cf tei.css */
-.document-views .text-view > * teiheader,
-.document-views .text-view > * body {
-  margin-top: 40px;
-  margin-left: auto;
-  margin-right: auto;
-  width: 80%;
-}
-
-.document-views .text-view > * body {
-  padding-bottom: 80px;
-}
-
-.toc-aside-is-opened {
-  .document-views .text-view > * teiheader,
-  .document-views .text-view > * body {
-    width: 100%;
-    margin-right: 0 !important;
-  }
+.document-views .text-view {
+  padding: 40px 10% 120px;
 }
 
 .images-mode .document-views,
@@ -2298,287 +2280,15 @@ export default {
   flex: 50% 0 0;
 }
 
-#center {
-  width: 100%;
-  margin: 0 !important;
-}
-
-#article {
-  padding: 20px 10% 120px;
-  border-bottom: 1px dotted #ffffff;
-  min-height: 100%;
-}
-div.remove-bottom-padding {
-  display: flex;
-}
-div.remove-bottom-padding #article {
-  padding: 40px 10% 10px !important;
-}
-
-#article article {
-  margin: 0;
-}
-
 #article > span.error > b {
   display: none;
-}
-
-#article {
-  .titlepage,
-  h1, h2, h3, h4, h5, h6 {
-    padding: 0;
-    margin-bottom: 30px;
-    font-family: var(--font-primary), sans-serif;
-    color: var(--document-text-color);
-    text-transform: none;
-    text-align: left;
-  }
-}
-
-#article h1 {
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-#article h2 {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.357;
-}
-
-#article h3 {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.727;
-}
-
-#article h4 {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.9;
-}
-
-#article h5 {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 2.111;
-}
-
-#article .titlepage {
-  font-size: 18px;
-  line-height: 25px;
-}
-
-#article .titlepage hr {
-  width: 100%;
-  margin: 60px 0 45px;
-  border: dashed #b9192f 1px;
-}
-
-#article .titlepage,
-#article .titlepage .forename {
-  font-variant: small-caps;
-  text-transform: none;
-}
-
-#article .titlepage .surname {
-  text-transform: uppercase;
-}
-
-#article .titlepage .forename,
-#article .titlepage .surname {
-  font-size: 20px;
-  font-weight: 500;
-}
-#article .titlepage .name {
-  margin-bottom: 30px;
-}
-#article .titlepage .roleName {
-  font-size: 16px;
-  line-height: 22px;
-  text-transform: uppercase;
-  font-style: italic;
-  color: #777;
-}
-
-#article .byline {
-  margin: 25px 0 90px;
-}
-
-#article .fileDesc > * {
-  margin-bottom: 10px;
-}
-
-#article .fileDesc > .titleStmt,
-#article .fileDesc p,
-#article .byline {
-  text-align: left;
-}
-
-#article .fileDesc p.author,
-#article .byline .docAuthor {
-  font-family: var(--font-serif), serif;
-  font-size: var(--font-default-size);
-  font-variant: unset;
-  line-height: 1.6;
-  color: var(--fill-color);
-  text-transform: none;
-}
-
-#article section.div {
-  border: none;
-  padding-bottom: 0;
-  padding-top: 40px;
-  text-align: left;
-}
-
-#article section.div:first-child {
-  padding-top: 0;
-}
-
-#article p b.label {
-  text-indent: 0;
-  margin-right: 3px;
-}
-
-#article {
-  .availability, .editionStmt, figcaption, .footnotes, li.bibl, .marginalia, .note, #noterefover, .publicationStmt, .sourceDesc, .speaker, .stage {
-    font-family: var(--font-primary), sans-serif;
-    font-size: var(--font-small-size);
-  }
-
-  .sourceDesc {
-    & head,
-    & trailer,
-    & label {
-      font-family: var(--font-primary), sans-serif;
-      font-weight: 500;
-      font-size: var(--font-default-size);
-      font-variant: none;
-      line-height: 1.4;
-      color: var(--document-text-color);
-      text-shadow: none;
-      text-transform: none;
-    }
-  }
-
-  .argument {
-    font-family: var(--font-primary), sans-serif;
-    font-weight: 400;
-    font-size: var(--font-default-size);
-    font-variant: none;
-    line-height: 1.4;
-    color: var(--document-text-color);
-  }
-
-  .noteref sup:empty::before {
-    content: "#";
-    font-size: 12px;
-    vertical-align: top;
-  }
-
-  .footnotes {
-    margin: 90px 0 0;
-    position: relative;
-  }
-
-  .footnotes > h3 {
-    border-bottom: #E4E4E4 4px solid !important;
-  }
-
-  .footnotes ol {
-    list-style-position: inside;
-
-    & > li {
-      position: relative;
-      margin-left: 30px;
-
-      & > a.noteback {
-        top: 0;
-      }
-    }
-  }
-
-  /*
-  .footnotes::before {
-    content: "Notes";
-    display: block;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--fill-color);
-  }
-
-  .footnotes::after {
-    content: "";
-    position: absolute;
-    top: 32px;
-    left: 0;
-    display: block;
-    width: 100%;
-    border-top: #E4E4E4 4px solid !important;
-  }
-
-   */
-
-  .footnotes > *:first-child {
-    display: block;
-    margin-top: 45px !important;
-  }
-
-  .footnotes .note-page {
-    margin: 10px 0 22px;
-  }
-
-  .footnotes .note-page a {
-    font-weight: 700;
-    font-size: 18px;
-    border: none;
-    text-decoration: none;
-  }
-
-  .footnotes aside.note a.noteback:hover,
-  .footnotes .note-page a:hover {
-    text-decoration: underline;
-  }
-
-  .footnotes aside.note {
-    position: relative;
-    padding: 0 0 0 40px;
-    margin: 0 0 40px;
-    border: none;
-  }
-
-  .footnotes aside.note:target::before {
-    display: none;
-  }
-
-  .footnotes aside.note > i {
-    font-style: inherit;
-  }
-
-  .footnotes aside.note a.noteback {
-    position: absolute;
-    left: 0;
-    top: -2px;
-    display: inline;
-    width: auto;
-    margin: 0;
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--fill-color);
-    text-decoration: none;
-    text-align: left;
-  }
-}
-
-.toc-area-header a {
-  color: inherit;
 }
 
 * [class*="mirador-window-top-bar"] {
   border-top: none !important;
 }
+
+
 .ariane-collection {
   display: flex;
   flex-direction: column;
@@ -2669,7 +2379,6 @@ div.remove-bottom-padding #article {
 
   position: relative;
 }
-
 .crumbs {
   display: flex;
   width: 100%;
@@ -2691,11 +2400,9 @@ div.remove-bottom-padding #article {
   width: 100% !important;
   padding: 20px !important;
 }
-
 .crumbs li a:hover {
   text-decoration: var(--text-decoration-hover);
 }
-
 .crumbs {
   li {
     display: flex;
@@ -2788,17 +2495,7 @@ div.remove-bottom-padding #article {
   vertical-align: center;
   /*margin-bottom: 10px;*/
   pointer-events: auto;
-}
-
-.controls {
-  position: sticky;
-  top: 85px;
-  z-index: 15; /* above document-area layer */
-  pointer-events: none;
-}
-
-.controls button {
-  pointer-events: auto;
+  box-sizing: border-box;
 }
 
 .document-area {
@@ -2806,6 +2503,7 @@ div.remove-bottom-padding #article {
   z-index: 10;
   margin-top: -60px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .document-area.toc-aside-is-opened {
@@ -3202,17 +2900,6 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
   }
 }
 
-a.pb {
-  border: none;
-  background: transparent;
-
-  &:focus,
-  &:hover {
-    color: var(--fill-color);
-  }
-
-}
-
 
 @media screen and (max-width: 1320px) {
   .toc-area .toc-area-content nav > ol.tree {
@@ -3225,20 +2912,6 @@ a.pb {
     margin-right: 20px;
   }
 
-  /* Document page numbers */
-  a.pb {
-    float: none;
-    display: block;
-    width: 100%;
-    position: relative;
-    padding: 20px 0;
-    text-decoration: none !important;
-  }
-
-  .cb, .ed {
-    margin-right: 0;
-    padding: 20px 5px;
-  }
 }
 
 @media screen and (max-width: 1024px) {
@@ -3250,13 +2923,6 @@ a.pb {
   .navigation-document::after {
     width: 100vw;
     left: -20px;
-  }
-
-  .document-views .text-view > * teiheader,
-  .document-views .text-view > * body {
-    width: auto;
-    margin-left: 0;
-    margin-right: 0;
   }
 
   .toc-aside-is-opened #aside {
@@ -3353,10 +3019,6 @@ a.pb {
     flex: 100% 0 0;
   }
 
-  .controls li:empty {
-    display: none;
-  }
-
   .text-mode .controls {
     .text-btn {
       pointer-events: none;
@@ -3377,6 +3039,10 @@ a.pb {
 
   .controls {
     top: 42px;
+  }
+
+  .controls li:empty {
+    display: none;
   }
 
   .controls-list.is-opened {
@@ -3484,16 +3150,12 @@ a.pb {
     }
   }
 
-  #article {
+  .document-views .text-view {
     padding: 40px 0 120px;
   }
 
   .toc-area .toc-area-content aside {
     padding: 0 !important;
-  }
-
-  .l-n {
-    margin-left: -2.2rem;
   }
 
   .tab-header,
@@ -3573,18 +3235,9 @@ a.pb {
     }
   }
 
-
   .several-parent {
     flex-direction: column;
     align-items: center;
-  }
-
-  .l-n {
-    margin-left: -1.5rem;
-  }
-
-  small {
-    font-size: 9px;
   }
 
   .document-area {
@@ -3603,23 +3256,8 @@ a.pb {
     columns: 1;
   }
 
-  div.remove-bottom-padding #article {
+  .document-views .text-view {
     padding: 40px var(--mobile-margin) 10px !important;
-  }
-
-  #article .byline {
-    margin: 15px 0 50px;
-  }
-
-  #article h1 {
-    font-size: 30px;
-  }
-
-  #article section.div {
-    padding-top: 10px;
-  }
-  #article p.p {
-    text-align: left;
   }
 
   .toc-area-header {

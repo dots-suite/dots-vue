@@ -339,7 +339,7 @@ figure.image img{
   }
   .tab-content {
     & .table td {
-      padding: 5px 5px;
+      padding: 10px 5px;
     }
   }
 

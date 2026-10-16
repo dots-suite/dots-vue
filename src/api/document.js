@@ -226,9 +226,11 @@ async function getMetadataFromApi (id, collConfig= null, route = null,  options 
   return fetchPromise
 }
 
-async function getDocumentFromApi (id, excludeFragments = false, mediaType, options = {}) {
+async function getDocumentFromApi (id, excludeFragments = false, mediaType, renderer, options = {}) {
   // TODO : default is document route without mediatype and if mediatype is provided include it
-  const response = await fetch(`${_baseApiURL}/document?resource=${id}&mediaType=${mediaType}&excludeFragments=${excludeFragments}`, { mode: 'cors', ...options })
+  // renderer selects the DoTS XSL matching the stylesheet loaded by useDocumentBaseCss; omitted when the collection sets none
+  const rendererParam = renderer ? `&renderer=${renderer}` : ''
+  const response = await fetch(`${_baseApiURL}/document?resource=${id}&mediaType=${mediaType}${rendererParam}&excludeFragments=${excludeFragments}`, { mode: 'cors', ...options })
   const document = response.text()
   return document
 }

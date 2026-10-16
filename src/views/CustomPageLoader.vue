@@ -54,6 +54,6 @@ const component = computed(() => {
 </script>
 
 <template>
-  <component v-if="component" :is="component" />
+  <component v-if="component" :is="component" class="dots-ui" />
   <div v-else>Page non trouvée</div>
 </template>

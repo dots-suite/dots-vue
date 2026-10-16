@@ -284,6 +284,7 @@ function onBlur() {
     padding: 0 !important;
     border: 1px solid #dbdbdb;
     border-radius: var(--button-border-radius);
+    box-sizing: border-box;
 
     font-family: inherit;
     color: #6e6e6e;

@@ -1,17 +1,13 @@
 <template>
-  <article class="about">
-    <div class="tiles">
-      <div class="tile page-header app-width-padding">
-        <div class="tile is-child">
-          <div class="is-flex is-flex-direction-column title-tile">
-            <p class="title">
-              {{ collectionAltTitle ? collectionAltTitle : currentCollection.title }}
-            </p>
-            <!-- h1 class="about-title">à propos</h1 -->
-          </div>
-        </div>
-      </div>
-    </div>
+  <article class="dots-ui about">
+    <!-- Same compact banner as the search page -->
+    <CollectionHeader
+      :collection-config="collectionConfig"
+      :application-config="applicationConfig"
+      :current-collection="currentCollection"
+      :collection-identifier="collectionIdentifier"
+      :root-collection-identifier="rootCollectionIdentifier"
+    />
     <div class="about-page app-width-padding">
       <!--:class="isMenuOpened ?'opened' : ''"-->
       <div class="tab-menu">
@@ -45,10 +41,17 @@
 </template>
 <script>
 import { shallowRef, defineAsyncComponent, ref, watch } from 'vue'
+import CollectionHeader from '@/components/CollectionHeader.vue'
 
 export default {
   name: 'AboutPage',
+  components: { CollectionHeader },
   props: {
+    // Default banner of the app (CollectionHeader)
+    applicationConfig: {
+      type: Object,
+      default: null
+    },
     rootCollectionIdentifier: {
       type: String,
       required: true
@@ -156,20 +159,6 @@ article.about {
   margin-top: 0;
 }
 
-.tile.is-child {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-.title-tile {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  width: 100%;
-  margin-top: 30px;
-  margin-bottom: 30px;
-}
 .about-page {
   display: flex;
   justify-content: space-between;

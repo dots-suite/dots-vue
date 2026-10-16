@@ -9,16 +9,20 @@
           type="number"
           class="year"
           v-model.number="inputMin"
-          @blur="checkMin"
-          @keyup.enter="checkMin"
+          :placeholder="heldYear.min ?? ''"
+          @focus="holdYear('min')"
+          @blur="commitYear('min')"
+          @keyup.enter="commitYear('min')"
         />
         <span>et</span>
         <input
           type="number"
           class="year"
           v-model.number="inputMax"
-          @blur="checkMax"
-          @keyup.enter="checkMax"
+          :placeholder="heldYear.max ?? ''"
+          @focus="holdYear('max')"
+          @blur="commitYear('max')"
+          @keyup.enter="commitYear('max')"
         />
       </div>
       <VueSlider
@@ -212,6 +216,31 @@ function checkMax() {
   setSliderIfChanged(min, max)
 }
 
+// Focusing a year empties the field and shows its value as a placeholder:
+// what is typed replaces it instead of mixing with its digits. Left empty,
+// the field gets its value back.
+const heldYear = ref({ min: null, max: null })
+const yearInputs = { min: inputMin, max: inputMax }
+
+function holdYear(bound) {
+  heldYear.value[bound] = yearInputs[bound].value
+  yearInputs[bound].value = ''
+}
+
+function commitYear(bound) {
+  const typed = yearInputs[bound].value
+  const held = heldYear.value[bound]
+  heldYear.value[bound] = null
+  // Nothing typed, or the same year: back to its value, no new range (a
+  // range sent unchanged would still become an active filter)
+  if (typed === '' || typed == null || typed === held) {
+    if (held != null) yearInputs[bound].value = held
+    return
+  }
+  if (bound === 'min') checkMin()
+  else checkMax()
+}
+
 
 
 function toPercent(value) {
@@ -279,8 +308,8 @@ function customProcess() {
       {
         background: `repeating-linear-gradient(
           to right,
-          #b9192f 0,
-          #b9192f 5px,
+          var(--fill-color) 0,
+          var(--fill-color) 5px,
           transparent 5px,
           transparent 9px
         )`,
@@ -307,8 +336,8 @@ function customProcess() {
       {
         background: `repeating-linear-gradient(
           to right,
-          #b9192f 0,
-          #b9192f 5px,
+          var(--fill-color) 0,
+          var(--fill-color) 5px,
           transparent 5px,
           transparent 9px
         )`,
@@ -331,7 +360,7 @@ function customProcess() {
       percent(selectionStart),
       percent(selectionEnd),
       {
-        backgroundColor: '#b9192f',
+        backgroundColor: 'var(--fill-color)',
         height: '3px'
       }
     ])
@@ -584,6 +613,7 @@ watch(
 
   -moz-appearance: textfield;
   background-color:#F5F5F5;
+  border-radius: 6px;
 
   max-width:50px;
   min-width:40px;
@@ -601,7 +631,7 @@ watch(
 }
 
 .temporal-inputs input[type="number"].year:focus {
-  outline:solid 2px #b9192f;
+  outline:solid 2px var(--fill-color);
 }
 
 /* Arrow removal input number */
@@ -686,11 +716,11 @@ watch(
 }
 
 :deep(.vue-slider-dot-handle) {
-  border-color:#b9192f !important;
+  border-color:var(--fill-color) !important;
 }
 
 :deep(.vue-slider-dot-handle-focus) {
-  box-shadow:0 0 0 5px rgba(185,25,47,.2);
+  box-shadow:0 0 0 5px color-mix(in srgb, var(--fill-color) 20%, transparent);
 }
 
 :deep(.vue-slider-marks .vue-slider-mark:first-child .vue-slider-mark-label) {
@@ -735,8 +765,8 @@ watch(
 :deep(.vue-slider-process.process-potential) {
   background: repeating-linear-gradient(
     to right,
-    #b9192f 0,
-    #b9192f 6px,
+    var(--fill-color) 0,
+    var(--fill-color) 6px,
     transparent 6px,
     transparent 10px
   ) !important;
@@ -749,7 +779,7 @@ watch(
    ================================================== */
 
 :deep(.vue-slider-process.process-selection) {
-  background: #b9192f !important;
+  background: var(--fill-color) !important;
 
   height: 4px !important;
 }

@@ -59,21 +59,26 @@ export default {
   a.navbar-burger {
     display: block;
     border: none;
-    width: 100%;
-    min-height: 65px;
+    width: 30px;
+    height: 30px;
   }
+  /* 30x30, like the app's other buttons on mobile (--button-size):
+     three 3px lines, from 15px above the centre to 15px below */
   .navbar-burger span {
-    width: 28px;
+    width: 30px;
     background-color: #FFFFFF;
     height: 3px;
     right: 0;
     left: unset;
   }
   .navbar-burger span:nth-child(1) {
-    top: calc(50% - 12px);
+    top: calc(50% - 15px);
+  }
+  .navbar-burger span:nth-child(2) {
+    top: calc(50% - 1.5px);
   }
   .navbar-burger span:nth-child(3) {
-    top: calc(50% + 10px);
+    top: calc(50% + 12px);
   }
 
   .navbar-burger span {

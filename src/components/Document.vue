@@ -1,8 +1,8 @@
 <template>
-  <div class="wrapper">
+  <div class="document wrapper">
     <div
       class="row"
-      :class="currentLevelIndicator === 'renderToc' ? 'remove-bottom-padding' : ''"
+      :class="currentLevelIndicator === 'renderToc' ? 'dots-ui' : ''"
     >
       <Suspense @resolve="scrollTo()">
         <component :is="customDocument" />
@@ -13,7 +13,7 @@
     <div
       v-if="currentLevelIndicator === 'renderToc'"
       id="article"
-      class="row bottom-toc"
+      class="dots-ui row bottom-toc"
     >
       <TOC
         :is-doc-project-id-included="isDocProjectIdInc"
@@ -26,7 +26,7 @@
     <div
       v-else-if="!currentLevelIndicator && currentLevel < editorialLevel"
       id="article"
-      class="row bottom-toc"
+      class="dots-ui row bottom-toc"
     >
       <TOC
         :is-doc-project-id-included="isDocProjectIdInc"
@@ -41,7 +41,7 @@
     <div
       v-else-if="!currentLevelIndicator && currentLevel === editorialLevel && editorialLevel === 0 && documentType === 'Collection'"
       id="article"
-      class="row bottom-toc"
+      class="dots-ui row bottom-toc"
     >
       <TOC
         :is-doc-project-id-included="isDocProjectIdInc"
@@ -55,7 +55,8 @@
 </template>
 
 <script>
-import {computed, defineAsyncComponent, ref, watch} from 'vue'
+import {computed, defineAsyncComponent, onBeforeUnmount, ref, watch} from 'vue'
+import { loadDocumentBaseCss, removeDocumentBaseCss } from '@/composables/useDocumentBaseCss'
 import { getCoverDataFromApi, getDocumentFromApi } from '@/api/document'
 import { useRoute } from 'vue-router'
 import TOC from '@/components/TOC.vue'
@@ -67,7 +68,7 @@ export default {
     TOC
   },
 
-  props: ['id', 'level', 'editoriallevel', 'bottomtoc', 'maxcitedepth', 'documenttype', 'editorialLevelIndicator', 'isDocProjectIdIncluded', 'mediaTypeEndpoint', 'projectIdentifier', 'iiifManifest'],
+  props: ['id', 'level', 'editoriallevel', 'bottomtoc', 'maxcitedepth', 'documenttype', 'editorialLevelIndicator', 'isDocProjectIdIncluded', 'mediaTypeEndpoint', 'renderer', 'projectIdentifier', 'iiifManifest'],
   emits: ['has-notes'],
 
   async setup (props, { emit }) {
@@ -76,6 +77,20 @@ export default {
     const route = useRoute()
     const isDocProjectIdInc = ref(props.isDocProjectIdIncluded)
     const mediaType = ref(props.mediaTypeEndpoint)
+    // renderer settings of the collection config: DoTS renderer name, stylesheets,
+    // container of the document in the HTML output, facsimile links
+    const renderer = ref(props.renderer ?? {})
+
+    // Base document stylesheets of the DoTS renderer, confined to .document-views.
+    // Not awaited: an await here would break every watch and hook that follows
+    // in this async setup (vue/no-watch-after-await).
+    loadDocumentBaseCss(renderer.value)
+
+    watch(renderer, (value) => {
+      loadDocumentBaseCss(value)
+    })
+
+    onBeforeUnmount(removeDocumentBaseCss)
     const manifest = ref(props.iiifManifest)
     // The parentId will the id used for the DoTS API, it is either the resourceId or the resourceId + '&ref=' + refId
     // TODO: rename to a more appropriate name : it is the id used for Dots API : dotsID ?
@@ -107,33 +122,70 @@ export default {
           if (currentLevel.value === 0) {
             data = await getCoverDataFromApi(parentId.value)
           } else {
-            data = await getDocumentFromApi(parentId.value, true, mediaType.value)
+            data = await getDocumentFromApi(parentId.value, true, mediaType.value, renderer.value.name)
           }
         } else if (currentLevelIndicator.value === 'toEdit' && documentType.value === 'Resource') {
-          data = await getDocumentFromApi(parentId.value, false, mediaType.value)
+          data = await getDocumentFromApi(parentId.value, false, mediaType.value, renderer.value.name)
         } else {
           return
         }
       } else if (currentLevel.value < editorialLevel.value && documentType.value === 'Resource') {
         // Selected level is a resource but hierarchically an ancestor of the editorial level : use the excludeFragment DoTS API response
-        data = await getDocumentFromApi(parentId.value, true, mediaType.value)
+        data = await getDocumentFromApi(parentId.value, true, mediaType.value, renderer.value.name)
         // Selected level is a resource at the editorial level : use the full DoTS API response (and not excludeFragment)
       } else if (editorialLevel.value === currentLevel.value && documentType.value === 'Resource') {
-        data = await getDocumentFromApi(parentId.value, false, mediaType.value)
+        data = await getDocumentFromApi(parentId.value, false, mediaType.value, renderer.value.name)
         // Otherwise the selected level is a collection (no DoTS API /document response) : do not fetch
       } else {
         return
       }
 
       // Build a temporary dom just to ease the navigation inside the document
-      const tmpDom = document.createElement('div')
+      // It belongs to an inert document, so that its images are not fetched: facsimile
+      // thumbnails replaced below point to full-size IIIF images (TEI-Boilerplate)
+      const tmpDom = document.implementation.createHTMLDocument('').createElement('div')
       let datatei = ''
       tmpDom.innerHTML = data
+      // The output is compiled as a template: no script or inline event handler
+      // written by a renderer (e.g. TEI-Boilerplate's onclick="showFacs(...)")
+      removeScripts(tmpDom)
       // Customize the template with some vue components and code
 
       // Generate PageBreak components for each iiif canvas link encoded in the DoTS response
 
-      if (mediaType.value === 'html' && manifest.value) {
+      if (mediaType.value === 'html' && manifest.value && Array.isArray(renderer.value.facsimiles)) {
+        // Facsimile links of the renderer output, declared in renderer.facsimiles:
+        // selector targets the link, image says where its IIIF image URL is.
+        // When declared, they replace the default handling below.
+        for (const { selector, image = {} } of renderer.value.facsimiles) {
+          const facsimiles = Array.from(tmpDom.querySelectorAll(selector))
+          for (let i = 0; i < facsimiles.length; i++) {
+            const previous = facsimiles[i - 1]
+            const current = facsimiles[i]
+            // We only add one thumbnail (page-break component) for each line group (lg), and we select the first one. To achieve this:
+            // 1. check if there is a previous facsimile (if not, this is the first one) -> creating page-break component
+            // 2. check if there is a previous sibling (if not, this is the first facsimile of the current lb) -> creating page-break component
+            // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first facsimile of the current lb) -> creating page-break component
+            if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
+              const source = image.selector ? current.querySelector(image.selector) : current
+              const imageUrl = source?.getAttribute(image.attribute ?? 'href')
+              const frameNum = manifest.value.items.findIndex(cvs => cvs.items[0].items[0].body.id === imageUrl)
+              // An image missing from the manifest leaves the facsimile as it is
+              if (frameNum === -1) {
+                console.warn(`Document: facsimile image not in the manifest: ${imageUrl}`)
+                continue
+              }
+              const container = document.createElement('div')
+              container.innerHTML = `<page-break canvas-id="${manifest.value.items[frameNum].id}" canvas-num="${frameNum}" image="${imageUrl}"/>`
+              // Replace the link with a PageBreak component
+              current.parentNode.replaceChild(container.firstChild, current)
+            } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
+              current.parentNode.removeChild(current)
+            }
+          }
+        }
+      } else if (mediaType.value === 'html' && manifest.value) {
+        // Default handling, without renderer.facsimiles: hteiml page links and line group figures
         const allPageBeginning = Array.from(tmpDom.querySelectorAll('a.pb[href*="iiif"]'))
         for (let i = 0; i < allPageBeginning.length; i++) {
           const previous = allPageBeginning[i - 1]
@@ -290,7 +342,10 @@ export default {
       // Return what will make the async component
       return new Promise((resolve) => {
         const doc = new DOMParser().parseFromString(tmpDom.innerHTML, 'text/html')
-        const docCenter = doc.getElementById('center');
+        // The cover is always hteiml
+        const isCover = currentLevel.value === 0 && currentLevelIndicator.value === 'renderToc'
+        // renderer.documentContainer, when declared, locates the document in the output; otherwise #center (hteiml)
+        const docCenter = !isCover && renderer.value.documentContainer ? doc.querySelector(renderer.value.documentContainer) : doc.getElementById('center');
         const docCenterInnerHtml = docCenter && docCenter.innerHTML ? docCenter.innerHTML : '';
 
         if (mediaType.value === 'html' || (currentLevel.value === 0 && currentLevelIndicator.value === 'renderToc')) {
@@ -501,6 +556,15 @@ export default {
       return doc.querySelector('section.footnotes') !== null || doc.querySelector('a.noteref') !== null
     }
 
+    function removeScripts(root) {
+      root.querySelectorAll('script').forEach(script => script.remove())
+      root.querySelectorAll('*').forEach(el => {
+        Array.from(el.attributes)
+          .filter(attr => attr.name.toLowerCase().startsWith('on'))
+          .forEach(attr => el.removeAttribute(attr.name))
+      })
+    }
+
     const highlightPatterns = computed(() => {
       const pid = store.state.search.activeProjectId
       return store.state.search.byProject?.[pid]?.highlightPatterns || []
@@ -601,30 +665,6 @@ export default {
 }
 </script>
 
-<style src="@/assets/css/html.css" id="document-html-css">
-.wrapper {
-  display: flex;
-  flex-direction: row;
-}
-
-header {
-  clear: both;
-  padding: 1ex;
-  border: dashed #ccc 1px;
-  -webkit-border-radius: 1ex;
-  -moz-border-radius: 1ex;
-  border-radius: 1ex;
-}
-.bottom-toc {
-  padding: 0 10% 10% 120px;
-  border-bottom: 1px dotted #ffffff;
-  min-height: 100%;
-}
-</style>
-<style>
-  @import '@/assets/css/tei.css';
-</style>
-<style src="@/assets/css/postprod.css" />
 <style scoped>
 
 :deep(mark.search-highlight) {

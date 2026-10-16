@@ -3,6 +3,8 @@
     class="collection-list"
     :class="{
       'root-collection-list': collectionId === rootCollectionId,
+      'on-search-page': isSearchPage,
+      'is-compact': isCompact,
       'has-banner': hasBanner,
       [`banner-${bannerType}`]: true,
       'has-image': hasImage,
@@ -78,7 +80,11 @@
         </div>
       </div>
     </div>
-    <transition v-if="showAbout" name="fade-slide">
+    <transition
+      v-if="showAbout"
+      name="fade-slide"
+      @after-leave="onAboutLeft"
+    >
       <section
         v-if="isAboutOpened"
         class="main collection-about app-width-margin"
@@ -140,12 +146,14 @@
   <slot name="after-header" /> -->
 </template>
 <script>
-import { computed, ref, shallowRef, defineAsyncComponent, watch } from 'vue'
+import { computed, ref, shallowRef, defineAsyncComponent, watch, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
 import DirectionalChevron from '@/assets/images/DirectionalChevron.vue'
 
 export default {
   name: 'CollectionHeader',
   components: { DirectionalChevron },
+  emits: ['about-opened'],
 
   props: {
     showAbout: Boolean,
@@ -156,7 +164,7 @@ export default {
     rootCollectionIdentifier: String
   },
 
-  setup (props) {
+  setup (props, { emit }) {
 
     const collConfig = computed(() => props.collectionConfig)
     const appConfig = computed(() => props.applicationConfig)
@@ -173,6 +181,15 @@ export default {
       },
       { immediate: true }
     )
+    // The search page lays its search bar out after it. Closing waits for the
+    // panel's leave transition: the panel keeps its place until then.
+    // The first call (no previous value) and an unmount report the actual
+    // state, so the page never keeps a stale "opened" (hot reload, remount).
+    watch(isAboutOpened, (opened, previous) => {
+      if (opened || previous === undefined) emit('about-opened', opened)
+    }, { immediate: true })
+    const onAboutLeft = () => emit('about-opened', false)
+    onBeforeUnmount(() => emit('about-opened', false))
 
     const appRootUrl = ref(`${import.meta.env.VITE_APP_APP_ROOT_URL}`)
     const normalisedBaseUrl = (baseURL) => {
@@ -181,6 +198,14 @@ export default {
 
     const hasNonEmptyObject = arr => Array.isArray(arr) && arr.some(obj => obj && Object.keys(obj).length > 0)
     const hasAbout = computed(() => hasNonEmptyObject(props.collectionConfig.aboutPageSettings))
+
+    // The opened about spans wider on the search page
+    const route = useRoute()
+    const isSearchPage = computed(() =>
+      route.name === 'CustomPage' && route.params.customPage?.toLowerCase() === 'search'
+    )
+    // Pages under the collection home: compact banner, the title alone
+    const isCompact = computed(() => isSearchPage.value || route.name === 'About')
 
     const toggleAbout = () => {
       isAboutOpened.value = !isAboutOpened.value
@@ -448,6 +473,9 @@ export default {
       hasAbout,
       isAboutOpened,
       toggleAbout,
+      onAboutLeft,
+      isSearchPage,
+      isCompact,
       collectionAltTitle,
       aboutBttnTxt,
       collectionDescription,
@@ -487,6 +515,11 @@ export default {
   margin: 0 0 30px !important;
   padding: 45px !important;
   background-color: var(--default-bg-color);
+}
+
+/* On the search page the opened about spans like the search form below it */
+.on-search-page .home-article-wrapper {
+  width: 100%;
 }
 
 #home-article.article {
@@ -551,6 +584,37 @@ export default {
 .collection-image-wrapper {
   width: 100%;
   height: 100%;
+}
+
+/* Compact banner on the pages under the collection home (search, about):
+   the title centred in it, 128px unless the title wraps.
+   main.css gives page headers 184px minimum. */
+.is-compact .tile.page-header {
+  min-height: auto;
+}
+.is-compact .collection-image {
+  position: relative;
+  height: auto;
+  min-height: 128px;
+}
+/* The image (a collection logo when there is no banner image) fills the
+   banner without setting its height: a square logo would stretch it to its
+   own height. Whole, as the banner is low. */
+.is-compact .collection-image-wrapper {
+  position: absolute;
+  inset: 0;
+}
+.collection-list.is-compact .collection-image > .collection-image-wrapper > img,
+.collection-list.is-compact .collection-image .collection-component {
+  object-fit: contain !important;
+}
+.is-compact .page-header .wrapper > .tile.article {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 20px;
+  padding-bottom: 20px;
 }
 
 .banner-default.has-image .collection-component,
@@ -632,7 +696,9 @@ export default {
   position: absolute;
   bottom: 0;
   left: 45px;
-  z-index: 2;
+  /* Above the search page's sticky header (z-index 22), which starts right
+     at the bottom of the header, under the overhanging half */
+  z-index: 23;
   display: flex;
   width: fit-content;
   background-color: var(--fill-color);
@@ -709,6 +775,10 @@ export default {
 @media screen and (max-width: 640px) {
   .page-header .wrapper > .tile {
     padding: 25px var(--mobile-margin);
+  }
+  .is-compact .page-header .wrapper > .tile.article {
+    padding-top: 16px;
+    padding-bottom: 16px;
   }
 
   .project-tile {
