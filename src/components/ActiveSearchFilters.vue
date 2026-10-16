@@ -1,6 +1,6 @@
 <template>
-  <!-- Under the search bar: the button of the facets panel, the number of
-       active filters with a caret that shows or hides their tags, the tags
+  <!-- Under the search bar: the button of the facets panel with the number
+       of active filters, a caret that shows or hides their tags, the tags
        and "Tout effacer" -->
   <div
     class="active-filters"
@@ -22,6 +22,14 @@
           <path d="M3 6 H21 M6 12 H18 M10 18 H14" />
         </svg>
         Filtres
+        <!-- Number of active filters, always shown: none, a pale 0 -->
+        <span
+          class="count-badge"
+          :class="{ 'is-empty': activeCount === 0 }"
+        >
+          {{ activeCount }}
+          <span class="visually-hidden">{{ activeCount > 1 ? 'filtres actifs' : 'filtre actif' }}</span>
+        </span>
       </button>
 
       <button
@@ -32,19 +40,11 @@
         :aria-label="`${collapsed ? 'Afficher' : 'Masquer'} les ${activeCount} filtres actifs`"
         @click="toggleCollapsed"
       >
-        <span class="count-badge">{{ activeCount }}</span>
         <i
           class="caret"
           :class="{ opened: !collapsed }"
         />
       </button>
-      <!-- No filter: a pale 0, nothing to show or hide -->
-      <span
-        v-else
-        class="count-badge is-empty"
-        role="status"
-        aria-label="Aucun filtre actif"
-      >0</span>
     </div>
 
     <template v-if="activeCount > 0">
@@ -129,7 +129,8 @@
         class="clearall-btn"
         @click.stop="clearAllFilters"
       >
-        Tout effacer
+        <span class="clearall-label-desktop">Réinitialiser les filtres</span>
+        <span class="clearall-label-mobile">Tout effacer</span>
       </button>
     </template>
   </div>
@@ -292,7 +293,7 @@ function clearAllFilters(){
   border-radius: 6px;
   background-color: #ffffff;
   color: var(--fill-color);
-  font: 500 14px var(--font-primary), sans-serif;
+  font: 500 var(--font-default-size) var(--font-primary), sans-serif;
   cursor: pointer;
 
   & svg {
@@ -310,13 +311,17 @@ function clearAllFilters(){
   }
 }
 
-/* Number of active filters + caret: shows or hides their tags */
+/* The caret next to the button: shows or hides the tags */
 .tags-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 24px;
   height: var(--button-size);
-  padding: 0 6px;
+  /* the caret as far from the separator as from the button: the row's 10px
+     gap after it minus the controls' 4px one */
+  margin-right: -6px;
+  padding: 0;
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -337,25 +342,42 @@ function clearAllFilters(){
   color: #ffffff;
   font: 500 12px var(--font-primary), sans-serif;
 }
+/* No filter: a pale 0 */
+.count-badge.is-empty {
+  background-color: color-mix(in srgb, var(--fill-color) 12%, #ffffff);
+  color: var(--fill-color);
+}
+/* White on the filled button (panel open) */
+.filters-panel-btn.is-opened .count-badge {
+  background-color: #ffffff;
+  color: var(--fill-color);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
+/* The tags show on its right: the caret points right while they are
+   hidden, left once they show (up and down once they go under it, see
+   below) */
 .caret {
   width: 0;
   height: 0;
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
   border-top: 6px solid #1a1a1a;
+  transform: rotate(-90deg);
   transition: transform .15s ease;
 
   &.opened {
-    transform: rotate(180deg);
+    transform: rotate(90deg);
   }
 }
 
-.count-badge.is-empty {
-  margin: 0 6px;
-  background-color: color-mix(in srgb, var(--fill-color) 12%, #ffffff);
-  color: var(--fill-color);
-}
 
 .separator {
   flex: none;
@@ -363,6 +385,9 @@ function clearAllFilters(){
   height: 22px;
   /* centred on the 40px buttons */
   margin-top: calc((var(--button-size) - 22px) / 2);
+  /* as far from the first tag as from the caret (13px): the row's 10px gap
+     + 3px */
+  margin-right: 3px;
   background-color: #cfcfcf;
 }
 
@@ -449,16 +474,32 @@ function clearAllFilters(){
   }
 }
 
+/* "Réinitialiser les filtres", at the right end of the row: plain text,
+   taking an active filter tag's shape on hover (same size, so nothing
+   moves) */
 .clearall-btn {
   flex: none;
-  height: var(--button-size);
-  padding: 0 4px;
-  border: none;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  /* centred on the buttons' line, like the tags */
+  margin-top: calc((var(--button-size) - 30px) / 2);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 15px;
   background: transparent;
   font: 500 13px var(--font-primary), sans-serif;
   color: var(--fill-color);
-  text-decoration: underline;
   cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--fill-color);
+    background-color: #ffffff;
+  }
+}
+.clearall-label-mobile {
+  display: none;
 }
 
 /* Narrow: the tags go to their own line under the controls */
@@ -470,6 +511,15 @@ function clearAllFilters(){
 
   .separator {
     display: none;
+  }
+
+  /* the tags under it: down while hidden, up once shown */
+  .caret {
+    transform: none;
+
+    &.opened {
+      transform: rotate(180deg);
+    }
   }
 
   .filter-tags {
@@ -485,6 +535,12 @@ function clearAllFilters(){
 
   .clearall-btn {
     margin-left: auto;
+  }
+  .clearall-label-desktop {
+    display: none;
+  }
+  .clearall-label-mobile {
+    display: inline;
   }
 
   .filter-tag-label {
