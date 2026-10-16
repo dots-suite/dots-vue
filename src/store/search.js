@@ -55,7 +55,8 @@ function createEmptySearchState() {
 
     noHighlight: false,
 
-    isFulltextSearch: false,
+    // Default search mode: full text
+    isFulltextSearch: true,
     isResultTableMode: true,
 
     collectionId: null,
