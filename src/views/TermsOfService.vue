@@ -14,7 +14,9 @@
         id="article"
         class="article"
       >
-        <h1>Terms of service</h1>
+        <h1 class="terms-title">
+          Terms of service
+        </h1>
         <h2>Publisher</h2>
         <p>
           École nationale des chartes, Public establishment<br>
@@ -167,7 +169,8 @@ section.main {
 #article h2:first-child {
   margin-top: 0;
 }
-#article h1 {
+/* The page name, the banner only giving the collection's */
+#article .terms-title {
   margin: 0 0 40px;
   padding: 0;
   font-family: var(--font-primary), sans-serif;
