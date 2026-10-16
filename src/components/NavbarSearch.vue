@@ -172,6 +172,8 @@ export default {
   border-radius: 6px 0 0 6px;
   background: #FFFFFF;
   color: var(--fill-color);
+  /* a <button>: it does not inherit the font, as the search page's */
+  font-family: var(--font-primary), sans-serif;
   font-size: 14px;
   text-transform: lowercase;
   cursor: pointer;

@@ -1729,7 +1729,6 @@ input[type="number"]::-webkit-inner-spin-button {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  border-bottom: solid 2px #ffffff;
 }
 
 /* search table */
