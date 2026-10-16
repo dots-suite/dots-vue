@@ -64,6 +64,7 @@
         v-show="scrollTopIsVisible"
         class="scroll-top"
         :class="scrollTopIsVisible ? 'is-available' : ''"
+        :style="scrollTopStyle"
         @click.prevent="scrollToTop"
       >
         <button
@@ -682,25 +683,15 @@ export default {
       { immediate: true }
     )
 
-    watch(() => scrollTopOpacity.value,(opacity) => {
-        if (! scrollTopIsVisible.value) return;
-
-        const footer = document.querySelector('.layout-footer')
-        const btn = document.querySelector('.scroll-top')
-        if (!footer || !btn) return
-
-        const BASE_BOTTOM = 20;
-        const observer = new IntersectionObserver(() => {
-            btn.style.bottom = `${ BASE_BOTTOM * opacity }px`
-            btn.style.opacity = opacity;
-          },{
-            // progressive thresholds for smooth animation
-            threshold: Array.from({ length: 30 }, (_, i) => i / 30)
-          }
-        )
-        observer.observe(footer)
-      },{ immediate: true }
-    )
+    // Fades and rises in over its first 100px of scroll, then stays 20px
+    // above the viewport bottom. (Was an IntersectionObserver created on
+    // each opacity change, never disconnected: the stale ones re-applied
+    // the low opacity they were created with once the footer showed.)
+    const SCROLL_TOP_BOTTOM = 20
+    const scrollTopStyle = computed(() => ({
+      bottom: `${SCROLL_TOP_BOTTOM * scrollTopOpacity.value}px`,
+      opacity: scrollTopOpacity.value
+    }))
 
     onMounted(() => {
       syncThemeColor()
@@ -728,6 +719,7 @@ export default {
       needsTopTint,
       breadCrumb,
       scrollTopIsVisible,
+      scrollTopStyle,
       scrollToTop
     }
   }
