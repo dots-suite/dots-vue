@@ -29,7 +29,7 @@
         <hr>
         <h2>Publishing director</h2>
         <p>
-          Michelle Bubenicek, Director of the École nationale des chartes<br>
+          Olivier Poncet, Director of the École nationale des chartes<br>
           secretariat@chartes.psl.eu
         </p>
         <hr>
