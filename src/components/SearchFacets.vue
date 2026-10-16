@@ -129,7 +129,8 @@
                 $event.target.value
               ); openFacetDropdown(facet.id)"
               @focus="openFacetDropdown(facet.id)"
-              @click="openFacetDropdown(facet.id)"
+              @mousedown="noteFacetDropdownState(facet.id)"
+              @click="toggleFacetDropdownOnClick(facet.id)"
               @keydown.escape="closeFacetDropdown(facet.id)"
             >
 
@@ -265,6 +266,23 @@ function openFacetDropdown(facetId) {
 
 function closeFacetDropdown(facetId) {
     facetDropdownOpen.value[facetId] = false
+}
+
+// A click in the field opens the list, a new click closes it. The state
+// is read on press: the first click focuses the field, which opens the
+// list before the click event, so reading it on click would close it again.
+const facetDropdownOpenOnPress = {}
+
+function noteFacetDropdownState(facetId) {
+    facetDropdownOpenOnPress[facetId] = isFacetDropdownOpen(facetId)
+}
+
+function toggleFacetDropdownOnClick(facetId) {
+    if (facetDropdownOpenOnPress[facetId]) {
+        closeFacetDropdown(facetId)
+    } else {
+        openFacetDropdown(facetId)
+    }
 }
 
 // Fermeture du dropdown de suggestions : on ne se base plus sur @blur du
