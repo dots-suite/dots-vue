@@ -67,7 +67,9 @@
           </a>.
         </p>
 
+        <!-- Image rights: empty for now, hidden until filled
         <h2>Image rights</h2>
+        -->
         <hr>
         <h1>Liability clause</h1>
         <p>
