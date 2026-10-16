@@ -819,10 +819,10 @@ watch(
     top: 8px;
   }
 
-  /* 32px, centred on the 36px Filtres button */
+  /* 32px, centred on the Filtres button */
   .filters-toggle-all {
     position: absolute;
-    top: 2px;
+    top: calc((var(--button-size) - 32px) / 2);
     right: 1rem;
     margin-right: 0;
   }

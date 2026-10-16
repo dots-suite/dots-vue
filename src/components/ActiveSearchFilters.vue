@@ -286,7 +286,7 @@ function clearAllFilters(){
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
+  height: var(--button-size);
   padding: 0 12px;
   border: 1px solid var(--fill-color);
   border-radius: 6px;
@@ -315,7 +315,7 @@ function clearAllFilters(){
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
+  height: var(--button-size);
   padding: 0 6px;
   border: none;
   border-radius: 6px;
@@ -361,7 +361,8 @@ function clearAllFilters(){
   flex: none;
   width: 1px;
   height: 22px;
-  margin-top: 7px;
+  /* centred on the 40px buttons */
+  margin-top: calc((var(--button-size) - 22px) / 2);
   background-color: #cfcfcf;
 }
 
@@ -372,7 +373,8 @@ function clearAllFilters(){
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding-top: 3px;
+  /* 30px tags centred on the buttons' line */
+  padding-top: calc((var(--button-size) - 30px) / 2);
 }
 
 .spacer {
@@ -449,7 +451,7 @@ function clearAllFilters(){
 
 .clearall-btn {
   flex: none;
-  height: 36px;
+  height: var(--button-size);
   padding: 0 4px;
   border: none;
   background: transparent;
