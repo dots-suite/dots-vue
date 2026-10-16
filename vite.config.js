@@ -1,5 +1,5 @@
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { prettifyError } from 'zod'
 
@@ -36,6 +36,16 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: ['vue']
+    },
+    server: {
+      fs: {
+        // The custom settings live outside the project: let the dev server
+        // serve the files their stylesheets point to (fonts)
+        allow: [
+          searchForWorkspaceRoot(process.cwd()),
+          path.resolve(__dirname, env.VITE_APP_CUSTOM_SETTINGS_PATH)
+        ]
+      }
     }
   }
 })
