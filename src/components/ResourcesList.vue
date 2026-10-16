@@ -1362,9 +1362,10 @@ input[type=number] {
     color: #000000;
   }
 
+  /* Same size as the title: 16px, 14px under 768px (--font-default-size) */
   .list-mode .cell:not(:nth-child(1)) a,
   .list-mode .cell:nth-child(2n) a {
-    font-size: 16px;
+    font-size: var(--font-default-size);
     color: #333333;
   }
 
