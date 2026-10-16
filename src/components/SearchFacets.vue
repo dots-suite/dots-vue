@@ -796,7 +796,8 @@ watch(
   .filters-header {
     position: sticky;
     align-items: flex-start;
-    padding-top: 0;
+    /* the panel's top space, kept above the header once it sticks */
+    padding-top: 10px;
     padding-bottom: 8px;
   }
 
@@ -819,10 +820,10 @@ watch(
     top: 8px;
   }
 
-  /* 32px, centred on the Filtres button */
+  /* 32px, centred on the Filtres button, under the header's top padding */
   .filters-toggle-all {
     position: absolute;
-    top: calc((var(--button-size) - 32px) / 2);
+    top: calc(10px + (var(--button-size) - 32px) / 2);
     right: 1rem;
     margin-right: 0;
   }
@@ -892,8 +893,24 @@ watch(
   background: transparent;
   cursor: pointer;
 }
+/* Unlike each facet's caret, a short line on the triangle's base side
+   (open/close all): 2px, 2px off it. The flip turns about the whole mark's
+   centre, kept centred in the button. */
 .filters-toggle-all .arrow{
+  position: relative;
+  margin-top: 4px;
   border-top-color: #1a1a1a;
+  transform-origin: 50% 1px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: -5px;
+    width: 10px;
+    height: 2px;
+    background-color: #1a1a1a;
+  }
 }
 
 .facet-box {
