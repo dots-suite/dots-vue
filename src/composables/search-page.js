@@ -1,3 +1,5 @@
+import { ref } from 'vue'
+
 const isDocProjectIdIncluded = `${import.meta.env.VITE_APP_DOCUMENT_ROUTE_INCLUDE_PROJECT_ID}`.toLowerCase() === 'true'
 
 // The settings files as the router and CustomPageLoader read them: a custom
@@ -28,4 +30,40 @@ export function getSearchRoute (collectionIds) {
     }
   }
   return null
+}
+
+// Search page header (search bar and active filters), shown or hidden by the
+// navbar magnifier while on the search page
+export const isSearchHeaderShown = ref(true)
+
+// Why a query cannot be searched, or '' when it can. Shared by the search
+// page bar and the navbar's search banner.
+// - "field:" syntax is not supported in full text
+// - blocked when every unit is 2 characters or less, or when nothing is
+//   left but operators: such queries match almost everything and cost a
+//   lot. A quoted phrase is one unit.
+export function getInvalidQueryMessage (term, isFulltext) {
+  const raw = (term || '').trim()
+  if (!raw) return ''
+
+  if (isFulltext && /[a-zA-Z0-9_.-]+:/.test(raw)) {
+    return 'Recherches "field: " non supportées en plein texte'
+  }
+
+  const units = []
+  const bare = raw.replace(/"([^"]*)"/g, (match, phrase) => {
+    units.push(phrase.trim())
+    return ' '
+  })
+  units.push(
+    ...bare
+      .replace(/[*?~^()+\-]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+  )
+  // No unit left means operators only ("*", "**"): nothing to search on.
+  if (units.length === 0 || units.every(u => u.length <= 2)) {
+    return 'Saisissez au moins 3 caractères'
+  }
+  return ''
 }

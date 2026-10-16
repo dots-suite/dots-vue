@@ -1,18 +1,11 @@
 <template>
   <div
     class="dots-ui collection-wrapper"
-    :class="{ 'about-opened': isAboutOpened }"
+    :class="{ 'search-header-hidden': !isSearchHeaderShown }"
   >
-    <CollectionHeader
-      :collection-config="collConfig"
-      :application-config="appConfig"
-      :current-collection="currCollection"
-      :collection-identifier="collectionId"
-      :root-collection-identifier="rootCollectionId"
-      :show-about="true"
-      @about-opened="isAboutOpened = $event"
-    />
+    <!-- No collection banner: the search bar right under the navbar -->
     <div
+      v-show="isSearchHeaderShown"
       ref="stickyHeaderEl"
       class="sticky-search-header app-width-margin"
     >
@@ -47,7 +40,7 @@
                   class="input is-medium"
                   :class="isInvalidQuery ? 'input-error' : ''"
                   type="text"
-                  placeholder="Recherche"
+                  :placeholder="`Rechercher dans ${searchCollectionName}`"
                   v-model="inputTerm"
                   @keyup.enter="executeSearches"
                   @click="$event.preventDefault()"
@@ -61,7 +54,8 @@
                   <span aria-hidden="true"></span>
                 </button>
               </div>
-              <!-- MESSAGE ERROR -->
+              <!-- MESSAGE ERROR: in the field, on its right, before the cross;
+                   under the whole bar from 1024px down -->
               <div v-if="isInvalidQuery" class="search-error-message" role="alert">
                 {{ invalidQueryMessage }}
               </div>
@@ -136,7 +130,7 @@
             :counts="search.totalCount.value"
             :is-elastic-search="true"
             :total-buckets="search.bucketCount.value"
-            :is-with-highlights="!!(isFulltextSearch && inputTerm.trim() && inputTerm.trim().length > 0)"
+            :is-with-highlights="searchedWithHits"
             :collection-indexed="search.collectionIndexed.value"
             @sort-change="updateSort"
             @page-change="changePage"
@@ -155,7 +149,7 @@ import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
 
-import CollectionHeader from '@/components/CollectionHeader.vue'
+import { isSearchHeaderShown, getInvalidQueryMessage } from '@/composables/search-page'
 import ResourcesList from '@/components/ResourcesList.vue'
 import SearchFacets from '@/components/SearchFacets.vue'
 import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
@@ -165,7 +159,6 @@ export default {
   components: {
     SearchFacets,
     ActiveSearchFilters,
-    CollectionHeader,
     ResourcesList
   },
   props: {
@@ -209,6 +202,10 @@ export default {
     const appConfig = computed(() => props.applicationConfig)
     const collConfig = computed(() => props.collectionConfig)
     const currCollection = computed(() => props.currentCollection)
+    // Short name, as the navbar and its search banner give it
+    const searchCollectionName = computed(() =>
+      collConfig.value?.homePageSettings?.appNavBar?.collectionShortTitle || currCollection.value?.title || collectionId.value
+    )
 
     const sidebarOpen = ref(false)
 
@@ -667,6 +664,7 @@ export default {
       search.setPageNum(1)
 
       await search.execute()
+      searchedWithHits.value = isFulltextSearch.value && !!t
     }
 
     const initialState = {
@@ -686,6 +684,11 @@ export default {
       set: (v) => search.setIsFulltextSearch(v)
     })
 
+    // Whether the results shown come from a full-text search with a term
+    // (hits column, documents count): set when a search runs, not as the
+    // field or the mode change, nor while the query is invalid
+    const searchedWithHits = ref(isFulltextSearch.value && !!search.term.value)
+
     const isModeOpen = ref(false)
 
     const searchTypeOptions = [
@@ -700,47 +703,11 @@ export default {
       }
     })
 
-    const hasFieldSyntax = computed(() => {
-      if (!isFulltextSearch.value) return false
-      return /[a-zA-Z0-9_.-]+:/.test(inputTerm.value || '')
-    })
-
-    // Blocked when every unit is 2 characters or less, or when nothing is left
-    // but operators: such queries match almost everything and cost a lot.
-    // A quoted phrase is one unit.
-    const isTooShortQuery = computed(() => {
-      const raw = (inputTerm.value || '').trim()
-      if (!raw) return false
-
-      const units = []
-      const bare = raw.replace(/"([^"]*)"/g, (match, phrase) => {
-        units.push(phrase.trim())
-        return ' '
-      })
-      units.push(
-        ...bare
-          .replace(/[*?~^()+\-]/g, ' ')
-          .split(/\s+/)
-          .filter(Boolean)
-      )
-      // No unit left means operators only ("*", "**"): nothing to search on.
-      return units.length === 0 || units.every(u => u.length <= 2)
-    })
-
-    const isInvalidQuery = computed(
-      () => hasFieldSyntax.value || isTooShortQuery.value
+    // Why the query cannot be searched, '' when it can (search-page.js)
+    const invalidQueryMessage = computed(() =>
+      getInvalidQueryMessage(inputTerm.value, isFulltextSearch.value)
     )
-
-    const invalidQueryMessage = computed(() => {
-      if (hasFieldSyntax.value) {
-        return 'Recherches "field: " non supportées en plein texte'
-      }
-
-      if (isTooShortQuery.value) {
-        return 'Saisissez au moins 3 caractères'
-      }
-      return ''
-    })
+    const isInvalidQuery = computed(() => invalidQueryMessage.value !== '')
 
     const currentSearchLabel = computed(() => {
       return searchTypeOptions.find(o => o.value === searchType.value)?.text
@@ -873,8 +840,6 @@ export default {
     // the first filter, so measure it.
     const stickyHeaderEl = ref(null)
 
-    // The search bar's top space depends on it (--search-bar-offset)
-    const isAboutOpened = ref(false)
     let headerObserver = null
 
     onMounted(() => {
@@ -892,6 +857,8 @@ export default {
     onBeforeUnmount(() => {
       headerObserver?.disconnect()
       document.documentElement.style.removeProperty('--search-header-height')
+      // Shown again on the next visit
+      isSearchHeaderShown.value = true
     })
 
     onMounted(() => {
@@ -914,6 +881,7 @@ export default {
       removeActiveFacet,
       removeActiveRange,
       clearAllFilters,
+      searchedWithHits,
       isFulltextSearch,
       toggleModeDropdown,
       currentSearchLabel,
@@ -937,7 +905,8 @@ export default {
       resetRange,
       resetFacet,
       stickyHeaderEl,
-      isAboutOpened,
+      isSearchHeaderShown,
+      searchCollectionName,
       sidebarOpen,
       toggleSidebar,
     }
@@ -1113,20 +1082,10 @@ tr td.chevron-up a::before {
   margin-right: 0 !important;
 }
 
-/* Space above the search bar: clears the header buttons overhanging the
-   form, like the space above the text of the opened about panel
-   (CollectionHeader .home-article-wrapper). Back to the original 12px when
-   the bar is not right under the header: below the opened about panel. */
+/* Space above the search bar: no header button overhangs it on the search
+   page, so the original 12px */
 .collection-wrapper {
-  --search-bar-offset: 45px;
-}
-.collection-wrapper.about-opened {
   --search-bar-offset: 12px;
-}
-@media screen and (max-width: 640px) {
-  .collection-wrapper:not(.about-opened) {
-    --search-bar-offset: 27px;
-  }
 }
 
 /* Once stuck, the header sits above the viewport top by the extra space,
@@ -1235,6 +1194,7 @@ tr td.chevron-up a::before {
 
 /* INPUT */
 .search-input-wrapper {
+  position: relative;
   flex: 1;
   display: flex;
   flex-wrap: wrap;
@@ -1252,7 +1212,7 @@ tr td.chevron-up a::before {
 .search-form .input {
   width: 100%;
   border-radius: 0;
-  height: calc(var(--button-size) * 1.1);
+  height: var(--button-size);
   box-shadow: none;
   padding-bottom: 6px;
   padding-top: 6px;
@@ -1263,18 +1223,31 @@ tr td.chevron-up a::before {
   box-shadow: none !important;
   border-color: #979797;
 }
+/* Red outline within the field's own border: no ring spilling over the
+   selector's and the button's borders */
 .search-form .input.input-error,
 .search-form .input.input-error:focus {
-  color: red !important;
-  border: 1px solid red !important;
-  box-shadow: 0 0 0 1px red !important;
+  color: #d33 !important;
+  border: 1px solid #d33 !important;
+  box-shadow: none !important;
 }
+/* In the field, right-aligned before the clear cross (10px + 22px), over
+   the room the field's text leaves it (.input-error padding) */
 .search-error-message {
-  flex: 0 0 100%;
-  margin-top: 4px;
-  text-align: center;
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  max-width: calc(50% - 48px);
+  transform: translateY(-50%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   color: #d33;
+  pointer-events: none;
+}
+.search-form .input.input-error {
+  padding-right: 50%;
 }
 
 /* CLEAR SEARCH ICON */
@@ -1355,8 +1328,8 @@ tr td.chevron-up a::before {
 
 /* SEARCH BUTTON */
 .search-submit {
-  width: calc(var(--button-size) * 1.1);
-  height: calc(var(--button-size) * 1.1) !important;
+  width: var(--button-size);
+  height: var(--button-size) !important;
   margin-right: 12px;
   padding: 0;
   border: none;
@@ -1385,10 +1358,10 @@ tr td.chevron-up a::before {
 }
 
 /* optionnel: fusion visuelle */
-/* The search bar follows the app's buttons: 44px for --button-size at 40,
-   33px when it drops to 30 under 768px. */
+/* The search bar follows the app's buttons: --button-size, 40px, 30px
+   under 768px. */
 .search-mode-trigger {
-  height: calc(var(--button-size) * 1.1);
+  height: var(--button-size);
   border-radius: 6px 0 0 6px;
 }
 
@@ -2001,4 +1974,98 @@ tr.row-details :deep(em),
   }
 }
 
+
+/* ===================================================================
+   Search bar placed as the navbar's search banner (NavbarSearch): a
+   full-width grey band, its content on the navbar's content edges, the
+   bar 22px under the navbar (12px under 768px, as the banner's 56px);
+   the filters row below it.
+   =================================================================== */
+.collection-wrapper {
+  --search-bar-offset: 22px;
+}
+.sticky-search-header.app-width-margin {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-left: calc((100% - var(--default-content-width)) / 2) !important;
+  padding-right: calc((100% - var(--default-content-width)) / 2) !important;
+  background-color: #f0f0f0;
+}
+.sticky-search-header .search-form {
+  border-radius: 0;
+}
+.sticky-search-header .search-form > .search-bar-row {
+  padding-left: 0;
+}
+.sticky-search-header .search-submit {
+  margin-right: 0;
+}
+.sticky-search-header :deep(.active-filters) {
+  padding-left: 0;
+  padding-right: 0;
+}
+/* No white line at the bottom of the band */
+.sticky-search-header .active-filters-and-sliders {
+  border-bottom: none;
+}
+@media screen and (max-width: 1320px) {
+  .sticky-search-header.app-width-margin {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+}
+@media screen and (max-width: 768px) {
+  .collection-wrapper {
+    --search-bar-offset: 12px;
+  }
+  .sticky-search-header.app-width-margin {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+
+/* From 1024px down the field gets too narrow to hold the query error on
+   its right: under the bar, as before, the field wrapping it to its own
+   line; the clear cross stays on the input's middle */
+@media screen and (max-width: 1024px) {
+  /* on its own line, across the whole bar: selector, field and, past the
+     wrapper, the submit button */
+  .search-error-message {
+    position: static;
+    flex: 0 0 calc(100% + var(--button-size));
+    max-width: none;
+    margin-top: 4px;
+    margin-right: calc(-1 * var(--button-size));
+    transform: none;
+    text-align: center;
+    white-space: normal;
+  }
+  .search-form .input.input-error {
+    padding-right: 40px;
+  }
+}
+
+/* The mode list's options no bigger than the selector button itself: its
+   height (inside a 1px border) and side padding */
+.search-mode-option {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: calc(var(--button-size) - 2px);
+  padding: 0 14px;
+}
+@media screen and (max-width: 768px) {
+  .search-mode-option {
+    padding: 0 8px;
+  }
+}
+
+/* The mode list as wide as its words (never wider than the selector), no
+   empty space after them */
+.search-mode-dropdown {
+  right: auto;
+  width: max-content;
+  min-width: 0;
+}
 </style>

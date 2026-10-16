@@ -60,13 +60,13 @@
       </div>
       <!-- Outside .level-right so it stays in the bar on mobile, next to the burger -->
       <button
-        v-if="searchRoute && !isSearchPage"
+        v-if="searchRoute"
         type="button"
         class="search-link"
         title="Rechercher"
         aria-label="Rechercher"
-        :aria-expanded="isSearchOpened"
-        @click.stop="isSearchOpened = !isSearchOpened"
+        :aria-expanded="isSearchPage ? isSearchHeaderShown : isSearchOpened"
+        @click.stop="toggleSearch"
       >
         <span
           class="search-icon"
@@ -119,7 +119,7 @@ import BurgerButton from './Burger.vue'
 import NavbarSearch from './NavbarSearch.vue'
 import { useRoute } from 'vue-router'
 import defaultLogo from '@/assets/images/logo_dots_circle.svg'
-import { getSearchRoute } from '@/composables/search-page'
+import { getSearchRoute, isSearchHeaderShown } from '@/composables/search-page'
 
 export default {
   name: 'AppNavbar',
@@ -200,7 +200,7 @@ export default {
     // Search banner opened from the magnifier, over the navbar
     const isSearchOpened = ref(false)
 
-    // The search page has its own bar: no magnifier there
+    // The search page has its own bar: there the magnifier shows or hides it
     const route = useRoute()
     const isSearchPage = computed(() =>
       route.name === 'CustomPage' && route.params.customPage?.toLowerCase() === 'search'
@@ -208,6 +208,10 @@ export default {
     watch(isSearchPage, (onSearchPage) => {
       if (onSearchPage) isSearchOpened.value = false
     })
+    const toggleSearch = () => {
+      if (isSearchPage.value) isSearchHeaderShown.value = !isSearchHeaderShown.value
+      else isSearchOpened.value = !isSearchOpened.value
+    }
 
 
     // Name of the searched collection as the breadcrumb shows it
@@ -410,6 +414,8 @@ export default {
       searchRoute,
       isSearchPage,
       isSearchOpened,
+      isSearchHeaderShown,
+      toggleSearch,
       searchCollectionName
     }
   }
@@ -538,8 +544,8 @@ nav span.level-item:not(:last-child)::after {
   align-items: center;
   height: 50px !important;
 }
-/* Same gap from the API button as between the logo and the first title:
-   .logo-header margin-right + .level-left gap */
+/* Right-aligned, next to the API button with the app's standard 12px gap
+   between buttons (on phones, the same 12px from the burger, see below) */
 .search-link {
   display: flex;
   flex: none;
@@ -550,7 +556,7 @@ nav span.level-item:not(:last-child)::after {
   cursor: pointer;
   align-self: center;
   align-items: center;
-  margin-right: calc(70px + 20px);
+  margin-right: var(--mobile-margin);
 }
 /* Search banner content over the navbar's content width: same padding as
    the nav, at each breakpoint below */
@@ -609,9 +615,7 @@ ul.submenu a:hover {
   .logo-header {
     margin-right: 15px;
   }
-  .search-link {
-    margin-right: calc(15px + 20px);
-  }
+
 }
 @media screen and (max-width: 768px) {
   nav {
@@ -635,9 +639,7 @@ ul.submenu a:hover {
     max-width: unset;
     margin-right: 12px;
   }
-  .search-link {
-    margin-right: calc(12px + 20px);
-  }
+
   .level-left .level-item:not(:last-child),
   .level-right .level-item:not(:last-child) {
     margin-right: .5rem;
