@@ -4,6 +4,7 @@
     :class="{
       'root-collection-list': collectionId === rootCollectionId,
       'on-search-page': isSearchPage,
+      'is-compact': !!pageSubtitle,
       'has-banner': hasBanner,
       [`banner-${bannerType}`]: true,
       'has-image': hasImage,
@@ -22,6 +23,25 @@
                 {{ collectionAltTitle?.length > 0 ? collectionAltTitle : currCollection.title }}
               </p>
             </div>
+            <p
+              v-if="pageSubtitle"
+              class="page-subtitle"
+            >
+              <!-- "You are here" pin -->
+              <svg
+                class="page-subtitle-pin"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <!-- the dot is a hole (evenodd): the banner shows through -->
+                <path
+                  fill-rule="evenodd"
+                  d="M12 21 C12 21 5 13.9 5 9 a7 7 0 0 1 14 0 C19 13.9 12 21 12 21 Z M14.5 9 a2.5 2.5 0 1 0 -5 0 a2.5 2.5 0 1 0 5 0 Z"
+                />
+              </svg>
+              <span class="visually-hidden">Vous êtes ici :</span>
+              {{ pageSubtitle }}
+            </p>
             <div
               v-if="showAbout && aboutBttnTxt"
               class="project-tile"
@@ -203,6 +223,13 @@ export default {
     const isSearchPage = computed(() =>
       route.name === 'CustomPage' && route.params.customPage?.toLowerCase() === 'search'
     )
+    // Pages under the collection home: compact banner, their name under
+    // the title
+    const pageSubtitle = computed(() => {
+      if (isSearchPage.value) return 'Recherche'
+      if (route.name === 'About') return 'À propos'
+      return ''
+    })
 
     const toggleAbout = () => {
       isAboutOpened.value = !isAboutOpened.value
@@ -472,6 +499,7 @@ export default {
       toggleAbout,
       onAboutLeft,
       isSearchPage,
+      pageSubtitle,
       collectionAltTitle,
       aboutBttnTxt,
       collectionDescription,
@@ -580,6 +608,62 @@ export default {
 .collection-image-wrapper {
   width: 100%;
   height: 100%;
+}
+
+/* Compact banner on the pages under the collection home (search, about):
+   the title and "› <page>" centred in it, 128px unless the title wraps.
+   main.css gives page headers 184px minimum. */
+.is-compact .tile.page-header {
+  min-height: auto;
+}
+.is-compact .collection-image {
+  position: relative;
+  height: auto;
+  min-height: 128px;
+}
+/* The image (a collection logo when there is no banner image) fills the
+   banner without setting its height: a square logo would stretch it to its
+   own height. Whole, as the banner is low. */
+.is-compact .collection-image-wrapper {
+  position: absolute;
+  inset: 0;
+}
+.collection-list.is-compact .collection-image > .collection-image-wrapper > img,
+.collection-list.is-compact .collection-image .collection-component {
+  object-fit: contain !important;
+}
+.is-compact .page-header .wrapper > .tile.article {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+.page-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font-primary), sans-serif;
+  font-size: 18px;
+  line-height: 1.3;
+  color: #FFFFFF;
+}
+/* Filled white like the text, its dot see-through */
+.page-subtitle-pin {
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  fill: currentColor;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .banner-default.has-image .collection-component,
@@ -740,6 +824,13 @@ export default {
 @media screen and (max-width: 640px) {
   .page-header .wrapper > .tile {
     padding: 25px var(--mobile-margin);
+  }
+  .is-compact .page-header .wrapper > .tile.article {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  .page-subtitle {
+    font-size: 15px;
   }
 
   .project-tile {

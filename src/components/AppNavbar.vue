@@ -60,13 +60,14 @@
       </div>
       <!-- Outside .level-right so it stays in the bar on mobile, next to the burger -->
       <button
-        v-if="searchRoute && !isSearchPage"
+        v-if="searchRoute"
         type="button"
         class="search-link"
-        title="Rechercher"
-        aria-label="Rechercher"
-        :aria-expanded="isSearchOpened"
-        @click.stop="isSearchOpened = !isSearchOpened"
+        :class="{ 'is-active': isSearchPage || isSearchOpened }"
+        :title="isSearchPage ? 'Quitter la recherche' : 'Rechercher'"
+        :aria-label="isSearchPage ? 'Quitter la recherche' : 'Rechercher'"
+        :aria-expanded="isSearchPage ? undefined : isSearchOpened"
+        @click.stop="toggleSearch"
       >
         <span
           class="search-icon"
@@ -117,7 +118,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import BurgerButton from './Burger.vue'
 import NavbarSearch from './NavbarSearch.vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import defaultLogo from '@/assets/images/logo_dots_circle.svg'
 import { getSearchRoute } from '@/composables/search-page'
 
@@ -200,7 +201,8 @@ export default {
     // Search banner opened from the magnifier, over the navbar
     const isSearchOpened = ref(false)
 
-    // The search page has its own bar: no magnifier there
+    // The search page has its own bar: there the magnifier stays active and
+    // leaves it, back to the collection home
     const route = useRoute()
     const isSearchPage = computed(() =>
       route.name === 'CustomPage' && route.params.customPage?.toLowerCase() === 'search'
@@ -208,6 +210,14 @@ export default {
     watch(isSearchPage, (onSearchPage) => {
       if (onSearchPage) isSearchOpened.value = false
     })
+    const router = useRouter()
+    const toggleSearch = () => {
+      if (isSearchPage.value) {
+        router.push({ name: 'Home', params: { collId: searchRoute.value.params.collId } })
+      } else {
+        isSearchOpened.value = !isSearchOpened.value
+      }
+    }
 
 
     // Name of the searched collection as the breadcrumb shows it
@@ -410,6 +420,7 @@ export default {
       searchRoute,
       isSearchPage,
       isSearchOpened,
+      toggleSearch,
       searchCollectionName
     }
   }
@@ -551,6 +562,27 @@ nav span.level-item:not(:last-child)::after {
   align-self: center;
   align-items: center;
   margin-right: calc(70px + 20px);
+  position: relative;
+  isolation: isolate;
+}
+/* Lighter square behind the magnifier while its search is shown (banner
+   opened, or on the search page):
+   the collection colour with 16% white, whatever --fill-color the settings
+   give. Drawn around the 30px icon so the layout does not move. */
+.search-link::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: -1;
+  border-radius: 6px;
+  background-color: transparent;
+  transition: background-color .15s ease;
+}
+.search-link:hover::before {
+  background-color: color-mix(in srgb, var(--fill-color) 92%, #ffffff);
+}
+.search-link.is-active::before {
+  background-color: color-mix(in srgb, var(--fill-color) 84%, #ffffff);
 }
 /* Search banner content over the navbar's content width: same padding as
    the nav, at each breakpoint below */

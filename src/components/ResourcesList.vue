@@ -524,7 +524,8 @@ name: 'ResourcesList',
     // DYNAMIC COLUMNS CSS
     const gridTemplateColumns = computed(() => {
       const cols = columns.value || []
-      const chevronWidth = '40px'
+      // Small open/close button of the full-text rows (see .chevron-up)
+      const chevronWidth = '24px'
 
       if (!cols.length) {
         return chevronWidth
@@ -732,10 +733,28 @@ name: 'ResourcesList',
   font-weight: 500 !important;
 }
 
+/* Search results: no grey line under each header, the wide collection
+   line under the whole header row instead of above it (on the pagination) */
 .list-mode .header-cell.search {
-  border-bottom: 3px solid #DCDCDC;
-  padding-bottom: 3px;
-  margin-bottom: 15px;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+.list-mode-wrapper.search-results .header.search-header {
+  /* the line close under the headers */
+  padding-bottom: 8px;
+  border-bottom: 4px solid var(--fill-color);
+}
+/* Same side padding as the rows (.row): same grid, so each column's text
+   starts under its header's sort icon. Below 1024px the rows no longer
+   follow the headers' grid. */
+@media screen and (min-width: 1025px) {
+  .list-mode-wrapper.search-results .header.search-header {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+.list-mode .pagination.search-results {
+  border-bottom: none;
 }
 
 /* ROW */
@@ -882,12 +901,15 @@ name: 'ResourcesList',
   font-weight: bold;
 }
 
+/* Open/close the hits of a full-text row: small, in the collection colour,
+   24px with its hit area */
 .list-mode .cell.chevron-down a,
 .list-mode .cell.chevron-up a {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 35px;
+  width: 24px;
+  height: 24px;
   text-decoration: none !important;
   border-bottom: none !important;
 }
@@ -898,23 +920,39 @@ name: 'ResourcesList',
   text-decoration: none !important;
 }
 
-.list-mode .cell.chevron-up a::before,
-.list-mode .cell.chevron-down a::before {
-  content: "";
-  display: inline-block;
-  width: 27px;
-  height: 20px;
-  transform-origin: 50%;
+/* Drawn with 2.5px strokes: the SVGs' thin lines vanish at this size */
+.list-mode .cell.chevron-up a,
+.list-mode .cell.chevron-down a {
+  position: relative;
 }
 
+/* Closed: a "v" */
 .list-mode .cell.chevron-up a::before {
-  background: url(../assets/images/chevron_rouge.svg) center / contain no-repeat;
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2.5px solid var(--fill-color);
+  border-bottom: 2.5px solid var(--fill-color);
+  transform: translateY(-2px) rotate(45deg);
 }
 
+/* Opened: a cross */
+.list-mode .row.is-selected .cell.chevron-down a::before,
+.list-mode .row.is-selected .cell.chevron-down a::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 15px;
+  height: 2.5px;
+  border-radius: 1px;
+  background: var(--fill-color);
+}
 .list-mode .row.is-selected .cell.chevron-down a::before {
-  background: #5a5a5a;
-  -webkit-mask: url(../assets/images/croix.svg) center / contain no-repeat;
-  mask: url(../assets/images/croix.svg) center / contain no-repeat;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.list-mode .row.is-selected .cell.chevron-down a::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 /* FILTER */
@@ -1075,7 +1113,7 @@ input[type=number] {
   }
 
   /* Border under the header: from 1024px on collection pages; for
-     search results, at 768px (see below) */
+     search results, at every width (.header.search-header) */
   .collection-results .list-header {
     border-bottom: 2px solid var(--fill-color);
   }
@@ -1163,9 +1201,9 @@ input[type=number] {
     align-items: center;
   }
 
-  /* Prevent collision with chevron */
+  /* Prevent collision with chevron (24px + gap) */
   .list-mode .li.container.row > .cell:not(.chevron-up):not(.chevron-down) {
-    padding-right: 45px;
+    padding-right: 32px;
   }
 
   /* Table rows */
@@ -1189,9 +1227,8 @@ input[type=number] {
 
 @media screen and (max-width: 768px) {
 
-  .search-results .list-header {
-    border-bottom: 2px solid var(--fill-color);
-  }
+  /* Search results: the wide line under the header row is already there
+     at every width (.header.search-header) */
 
   .list-mode-wrapper {
     width: auto;

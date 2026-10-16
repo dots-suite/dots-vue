@@ -1,16 +1,11 @@
 <template>
-  <div
-    class="dots-ui collection-wrapper"
-    :class="{ 'about-opened': isAboutOpened }"
-  >
+  <div class="dots-ui collection-wrapper">
     <CollectionHeader
       :collection-config="collConfig"
       :application-config="appConfig"
       :current-collection="currCollection"
       :collection-identifier="collectionId"
       :root-collection-identifier="rootCollectionId"
-      :show-about="true"
-      @about-opened="isAboutOpened = $event"
     />
     <div
       ref="stickyHeaderEl"
@@ -47,15 +42,17 @@
                   class="input is-medium"
                   :class="isInvalidQuery ? 'input-error' : ''"
                   type="text"
-                  placeholder="Recherche"
+                  :placeholder="`Rechercher dans ${searchCollectionName}`"
                   v-model="inputTerm"
                   @keyup.enter="executeSearches"
                   @click="$event.preventDefault()"
                 /><!-- live debounced search : @keyup.enter="executeSearches" -->
                 <button
                   v-if="inputTerm"
+                  type="button"
                   class="search-clear"
-                  title="Clear search"
+                  title="Effacer le texte"
+                  aria-label="Effacer le texte"
                   @click.prevent="deleteTerm"
                 >
                   <span aria-hidden="true"></span>
@@ -70,9 +67,26 @@
             <!-- button -->
             <button
               class="search-submit"
+              title="Rechercher"
+              aria-label="Rechercher"
               :disabled="isInvalidQuery || search.loading.value"
               @click="executeSearches"
             />
+            <!-- Back to an empty search: text and filters -->
+            <button
+              type="button"
+              class="search-reset"
+              title="Effacer le texte et les filtres"
+              @click="resetSearch"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M20 12 a8 8 0 1 1 -2.4 -5.7 M20 4 V9 H15" />
+              </svg>
+              <span class="search-reset-label">Réinitialiser</span>
+            </button>
           </div>
           <div class="active-filters-and-sliders">
             <ActiveSearchFilters
@@ -102,7 +116,11 @@
         />
       </Transition>
       <Transition name="sidebar-slide">
-        <aside class="facets-sidebar" v-if="sidebarOpen">
+        <aside
+          v-if="sidebarOpen"
+          ref="sidebarEl"
+          class="facets-sidebar"
+        >
           <div class="facets-sidebar-header">
           </div>
           <SearchFacets
@@ -112,6 +130,7 @@
             :temporal-facets="visibleTemporal"
             :active-facets="activeFacetTags"
             :ranges="ranges"
+            :results-count="resultsDocumentCount"
             @facet-open="openFacet"
             @facet-close="closeFacet"
             @toggleFacet="onToggleFacet"
@@ -149,7 +168,7 @@
 
 <script>
 
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
@@ -209,6 +228,10 @@ export default {
     const appConfig = computed(() => props.applicationConfig)
     const collConfig = computed(() => props.collectionConfig)
     const currCollection = computed(() => props.currentCollection)
+    // Short name, as the navbar and its search banner give it
+    const searchCollectionName = computed(() =>
+      collConfig.value?.homePageSettings?.appNavBar?.collectionShortTitle || currCollection.value?.title || collectionId.value
+    )
 
     const sidebarOpen = ref(false)
 
@@ -223,6 +246,33 @@ export default {
 
     const openedFacets = search.openedFacets
 
+    // Documents found, as the table counts them: in full text with a term,
+    // the documents holding hits (buckets), not the hits
+    const resultsDocumentCount = computed(() => {
+      const withHits = isFulltextSearch.value && inputTerm.value.trim().length > 0
+      const buckets = search.bucketCount.value
+      return withHits && buckets > 0 ? buckets : search.totalCount.value
+    })
+
+    // A filter changed: new results, and the page back up to their top if
+    // it was further down (the sidebar keeps its own scroll)
+    function applyFilters(){
+      executeSearches()
+      scrollToResults()
+    }
+
+    function scrollToResults(){
+      const main = document.querySelector('.collection-wrapper .page-main')
+      if (!main) return
+      // Right under the stuck search header; never 0, where the sidebar
+      // would go back to its top too (see onViewportChange)
+      const headerHeight = stickyHeaderEl.value?.offsetHeight || 0
+      const target = Math.max(Math.round(main.getBoundingClientRect().top + window.scrollY - headerHeight), 1)
+      if (window.scrollY > target) {
+        window.scrollTo({ top: target, behavior: 'smooth' })
+      }
+    }
+
     function onTemporalChange({key, range}){
       // `ranges` is keyed by the canonical key; the Elasticsearch paths
       // travel inside `range` as startField / endField.
@@ -230,7 +280,7 @@ export default {
         key,
         range
       )
-      executeSearches()
+      applyFilters()
     }
 
     // Facets and configuration entries are both designated by `key`, the
@@ -562,20 +612,31 @@ export default {
         facetType: tag.facetType,
         facetKey: tag.raw
       })
-      executeSearches()
+      applyFilters()
     }
 
     function removeActiveRange(field){
       search.setRange(field, null)
-      executeSearches()
+      applyFilters()
     }
 
-    function clearAllFilters(){
+    function clearFilters(){
       search.clearFacets()
       Object.keys(search.ranges.value)
         .forEach(field => {
           search.setRange(field, null)
         })
+    }
+
+    function clearAllFilters(){
+      clearFilters()
+      applyFilters()
+    }
+
+    // "Réinitialiser": empty text and no filter, one search
+    function resetSearch(){
+      inputTerm.value = ''
+      clearFilters()
       executeSearches()
     }
 
@@ -592,7 +653,7 @@ export default {
           value: facetKey
         })
       }
-      executeSearches()
+      applyFilters()
     }
 
     function openFacet(id){
@@ -605,12 +666,12 @@ export default {
 
     function resetRange(rangeKey) {
       search.removeRange(rangeKey)
-      executeSearches()
+      applyFilters()
     }
 
     function resetFacet(facetType) {
       search.removeFacetType(facetType)
-      executeSearches()
+      applyFilters()
     }
 
     // FILTERS
@@ -873,8 +934,6 @@ export default {
     // the first filter, so measure it.
     const stickyHeaderEl = ref(null)
 
-    // The search bar's top space depends on it (--search-bar-offset)
-    const isAboutOpened = ref(false)
     let headerObserver = null
 
     onMounted(() => {
@@ -885,12 +944,69 @@ export default {
           '--search-header-height',
           `${Math.round(entry.contentRect.height)}px`
         )
+        fitSidebar()
       })
       headerObserver.observe(stickyHeaderEl.value)
+      window.addEventListener('scroll', onViewportChange, { passive: true })
+      window.addEventListener('resize', onViewportChange)
+      window.addEventListener('wheel', onPageWheel, { passive: true })
     })
+
+    // The filters sidebar always fits between where it starts (under the
+    // banner at first, under the stuck header once the page scrolled) and
+    // the viewport bottom - or the page body's bottom near the footer, or
+    // the sticky sidebar would be pushed up and lose its top: all of it is
+    // reached by its own scroll, never by scrolling the page
+    const sidebarEl = ref(null)
+    const fitSidebar = () => {
+      const el = sidebarEl.value
+      if (!el) return
+      const body = el.parentElement.getBoundingClientRect()
+      const stickyTop = parseFloat(getComputedStyle(el).top) || 0
+      const top = Math.max(body.top, stickyTop)
+      // A blank 24px under it, as at the end of its own scroll, above the
+      // viewport bottom as above the page body's end
+      const bottom = Math.min(window.innerHeight, body.bottom) - 24
+      el.style.setProperty('--sidebar-max-height', `${Math.max(Math.round(bottom - top), 0)}px`)
+    }
+    let fitFrame = null
+    const onViewportChange = () => {
+      if (fitFrame) return
+      fitFrame = requestAnimationFrame(() => {
+        fitFrame = null
+        fitSidebar()
+        // Back at the top of the page (the "back to top" button too): the
+        // sidebar back to its top as well
+        if (window.scrollY <= 0 && sidebarEl.value?.scrollTop > 0) {
+          sidebarEl.value.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      })
+    }
+    watch(sidebarOpen, (opened) => {
+      if (opened) nextTick(fitSidebar)
+    })
+
+    // Wheel outside the sidebar once the page cannot go further (bottom of
+    // the table going down, top of the page going up): the sidebar takes
+    // the rest. Not where the sidebar overlays the page (narrow screens).
+    const onPageWheel = (event) => {
+      const el = sidebarEl.value
+      if (!el || el.contains(event.target) || getComputedStyle(el).position === 'fixed') return
+      const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
+      const root = document.documentElement
+      const atBottom = window.scrollY + window.innerHeight >= root.scrollHeight - 1
+      const atTop = window.scrollY <= 0
+      if ((delta > 0 && atBottom) || (delta < 0 && atTop)) {
+        el.scrollTop += delta
+      }
+    }
 
     onBeforeUnmount(() => {
       headerObserver?.disconnect()
+      window.removeEventListener('scroll', onViewportChange)
+      window.removeEventListener('resize', onViewportChange)
+      window.removeEventListener('wheel', onPageWheel)
+      if (fitFrame) cancelAnimationFrame(fitFrame)
       document.documentElement.style.removeProperty('--search-header-height')
     })
 
@@ -919,11 +1035,14 @@ export default {
       currentSearchLabel,
       isModeOpen,
       searchTypeOptions,
+      searchType,
       selectSearchType,
       inputTerm,
       isInvalidQuery,
       invalidQueryMessage,
       deleteTerm,
+      resetSearch,
+      resultsDocumentCount,
       updateSort,
       changePage,
       openedFacets,
@@ -937,8 +1056,9 @@ export default {
       resetRange,
       resetFacet,
       stickyHeaderEl,
-      isAboutOpened,
+      searchCollectionName,
       sidebarOpen,
+      sidebarEl,
       toggleSidebar,
     }
   }
@@ -1113,20 +1233,10 @@ tr td.chevron-up a::before {
   margin-right: 0 !important;
 }
 
-/* Space above the search bar: clears the header buttons overhanging the
-   form, like the space above the text of the opened about panel
-   (CollectionHeader .home-article-wrapper). Back to the original 12px when
-   the bar is not right under the header: below the opened about panel. */
+/* Space above the search bar: no header button overhangs it any more (no
+   about button on the search page), so the original 12px */
 .collection-wrapper {
-  --search-bar-offset: 45px;
-}
-.collection-wrapper.about-opened {
   --search-bar-offset: 12px;
-}
-@media screen and (max-width: 640px) {
-  .collection-wrapper:not(.about-opened) {
-    --search-bar-offset: 27px;
-  }
 }
 
 /* Once stuck, the header sits above the viewport top by the extra space,
@@ -1175,20 +1285,32 @@ tr td.chevron-up a::before {
 }
 
 .facets-sidebar {
-  flex: 0 0 33.333%;
-  max-width: 33.333%;
+  /* Its third of the row, minus 12px kept on its right: its scrollbar stays
+     clear of the table, which does not move */
+  flex: 0 0 calc(33.333% - 12px);
+  max-width: calc(33.333% - 12px);
+  margin-right: 12px;
   box-sizing: border-box;
   padding: 0 0 0 0 !important;
   background: #fff;
 
   /* align-self cancels .page-body's stretch, or the sidebar takes the
-     table's height and has nothing to stick within. No scroll of its own:
-     the list follows the page. */
+     table's height and has nothing to stick within. */
   position: sticky;
   /* Bottom of the stuck search header, which sticks above the viewport top
      by the space it hides (see .sticky-search-header) */
   top: calc(var(--search-header-height, 0px) + 12px - var(--search-bar-offset));
   align-self: flex-start;
+  /* Scrolls on its own, down to the viewport bottom (height set from its
+     position, see fitSidebar): the wheel over the filters scrolls them,
+     not the page and its table, even at their end */
+  max-height: var(--sidebar-max-height, calc(100vh - (var(--search-header-height, 0px) + 12px - var(--search-bar-offset))));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Discreet scrollbar: thin, in the browser's colours */
+.facets-sidebar {
+  scrollbar-width: thin;
 }
 
 .sidebar-backdrop {
@@ -1234,11 +1356,18 @@ tr td.chevron-up a::before {
 }
 
 /* INPUT */
+/* One border, the collection colour, around the selector and the input;
+   the filled submit button closes it on the right */
 .search-input-wrapper {
+  position: relative;
   flex: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
+  border: 1px solid var(--fill-color);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  background-color: #ffffff;
 }
 
 .search-input-field {
@@ -1251,17 +1380,19 @@ tr td.chevron-up a::before {
 
 .search-form .input {
   width: 100%;
+  /* Room for the clear cross */
+  padding-right: 48px;
+  border: none;
   border-radius: 0;
-  height: calc(var(--button-size) * 1.1);
+  /* Inside the bar's 1px border: the bar stays as high as the button */
+  height: calc(var(--button-size) * 1.1 - 2px);
   box-shadow: none;
   padding-bottom: 6px;
   padding-top: 6px;
-  border-color: #979797;
 }
 .search-form .input:focus {
   outline: none !important;
   box-shadow: none !important;
-  border-color: #979797;
 }
 .search-form .input.input-error,
 .search-form .input.input-error:focus {
@@ -1270,22 +1401,25 @@ tr td.chevron-up a::before {
   box-shadow: 0 0 0 1px red !important;
 }
 .search-error-message {
-  flex: 0 0 100%;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   margin-top: 4px;
   text-align: center;
   font-size: 12px;
   color: #d33;
 }
 
-/* CLEAR SEARCH ICON */
+/* CLEAR SEARCH ICON: a plain cross in a 36px hit area */
 .search-clear {
   position: absolute;
-  right: 10px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
 
-  width: 22px;
-  height: 22px;
+  width: 36px;
+  height: 36px;
   padding: 0;
 
   border: none;
@@ -1297,13 +1431,10 @@ tr td.chevron-up a::before {
   justify-content: center;
 }
 
-/* CIRCLE */
 .search-clear span {
   position: relative;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  border: 1.5px solid #b8b8b8;
 }
 
 /* CROSS */
@@ -1313,9 +1444,10 @@ tr td.chevron-up a::before {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 10px;
-  height: 1.5px;
-  background-color: #b8b8b8;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background-color: #5c5c5c;
   transform-origin: center;
 }
 
@@ -1328,13 +1460,9 @@ tr td.chevron-up a::before {
 }
 
 /* hover */
-.search-clear:hover span {
-  border-color: #666;
-}
-
 .search-clear:hover span::before,
 .search-clear:hover span::after {
-  background-color: #666;
+  background-color: #1a1a1a;
 }
 
 /* CLEAR INPUTS */
@@ -1357,7 +1485,6 @@ tr td.chevron-up a::before {
 .search-submit {
   width: calc(var(--button-size) * 1.1);
   height: calc(var(--button-size) * 1.1) !important;
-  margin-right: 12px;
   padding: 0;
   border: none;
   border-radius: 0 6px 6px 0;
@@ -1378,6 +1505,36 @@ tr td.chevron-up a::before {
     mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
   }
 }
+/* RESET BUTTON: outlined, the collection colour */
+.search-reset {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: calc(var(--button-size) * 1.1);
+  margin: 0 12px 0 16px;
+  padding: 0 16px;
+  border: 1px solid var(--fill-color);
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: var(--fill-color);
+  font: 500 15px var(--font-primary), sans-serif;
+  cursor: pointer;
+
+  & svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--fill-color) 8%, #ffffff);
+  }
+}
 .search-submit:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1388,7 +1545,7 @@ tr td.chevron-up a::before {
 /* The search bar follows the app's buttons: 44px for --button-size at 40,
    33px when it drops to 30 under 768px. */
 .search-mode-trigger {
-  height: calc(var(--button-size) * 1.1);
+  height: calc(var(--button-size) * 1.1 - 2px);
   border-radius: 6px 0 0 6px;
 }
 
@@ -1455,7 +1612,7 @@ tr td.chevron-up a::before {
   gap: 6px;
 
   background: #fff;
-  border: 1px solid var(--fill-color);
+  border: none;
   color: var(--fill-color);
 
   padding: 10px 14px;
@@ -1467,37 +1624,43 @@ tr td.chevron-up a::before {
 }
 
 .search-mode-trigger .arrow {
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid var(--fill-color);
+  width: 7px;
+  height: 7px;
+  margin: -4px 2px 0;
+  border-right: 2px solid var(--fill-color);
+  border-bottom: 2px solid var(--fill-color);
+  transform: rotate(45deg);
 }
 
+/* The list looks like the bar: same border and radius, under it */
 .search-mode-dropdown {
   position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  top: calc(100% + 6px);
+  left: -1px;
+  min-width: calc(100% + 1px);
+  overflow: hidden;
 
   background: white;
-  border: 1px solid #ddd;
+  border: 1px solid var(--fill-color);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .35);
   z-index: 20;
 }
 
 .search-mode-option {
-  padding: 10px 12px;
-  cursor: pointer;
+  padding: 10px 14px;
+  color: #1a1a1a;
   font-size: 14px;
   text-transform: lowercase;
+  cursor: pointer;
 }
 
 .search-mode-option:hover {
-  background: #f2f2f2;
+  background: color-mix(in srgb, var(--fill-color) 8%, #ffffff);
 }
 
 .search-mode-option.active {
-  background: #c00055;
+  background: var(--fill-color);
   color: white;
 }
 
@@ -1906,6 +2069,16 @@ tr.row-details :deep(em),
   }
 }
 @media screen and (max-width: 768px) {
+  /* Reset: icon only */
+  .search-reset {
+    justify-content: center;
+    width: calc(var(--button-size) * 1.1);
+    margin-left: 8px;
+    padding: 0;
+  }
+  .search-reset-label {
+    display: none;
+  }
   /* The mode selector is cramped: drop its side padding */
   .search-mode-trigger {
     padding: 0 8px;

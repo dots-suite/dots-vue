@@ -4,9 +4,6 @@
     @click.stop
     @keydown.esc="$emit('close')"
   >
-    <span class="navbar-search-label">
-      Recherche dans {{ collectionName }}
-    </span>
     <div class="navbar-search-bar">
       <!-- Same controls as the search page bar -->
       <div class="search-mode-wrapper">
@@ -38,14 +35,14 @@
         v-model="term"
         class="input"
         type="text"
-        placeholder="Recherche"
+        :placeholder="collectionName ? `Rechercher dans ${collectionName}` : 'Rechercher'"
         @keyup.enter="submit"
       >
       <button
         type="button"
         class="search-submit"
-        title="Rechercher"
-        aria-label="Rechercher"
+        title="Aller à la recherche"
+        aria-label="Aller à la recherche"
         @click="submit"
       />
     </div>
@@ -85,7 +82,8 @@ export default {
 
     // Starts on the mode of the current search, like the search page bar
     const activeSearch = store.state.search.byProject?.[store.state.search.activeProjectId]
-    const mode = ref(activeSearch?.isFulltextSearch ? 'fulltext' : 'notice')
+    // Full text by default (no search yet), as the store
+    const mode = ref((activeSearch?.isFulltextSearch ?? true) ? 'fulltext' : 'notice')
     const term = ref('')
     const isModeOpen = ref(false)
     const inputEl = ref(null)
@@ -144,18 +142,16 @@ export default {
   font-family: var(--font-primary), sans-serif;
 }
 
-.navbar-search-label {
-  flex: none;
-  font-size: 20px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
+/* One border, the collection colour, around the selector and the input;
+   the filled submit button closes it on the right */
 .navbar-search-bar {
   display: flex;
   flex: 1;
   min-width: 0;
   align-items: center;
+  border: 1px solid var(--fill-color);
+  border-radius: 6px;
+  background-color: #FFFFFF;
 }
 
 /* ===== Search page bar controls (SearchPage.vue) ===== */
@@ -169,9 +165,10 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: calc(var(--button-size) * 1.1);
+  /* Inside the bar's 1px border */
+  height: calc(var(--button-size) * 1.1 - 2px);
   padding: 10px 14px;
-  border: 1px solid var(--fill-color);
+  border: none;
   border-radius: 6px 0 0 6px;
   background: #FFFFFF;
   color: var(--fill-color);
@@ -181,42 +178,51 @@ export default {
 }
 
 .search-mode-trigger .arrow {
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid var(--fill-color);
+  width: 7px;
+  height: 7px;
+  margin: -4px 2px 0;
+  border-right: 2px solid var(--fill-color);
+  border-bottom: 2px solid var(--fill-color);
+  transform: rotate(45deg);
 }
 
+/* The list looks like the bar: same border and radius, under it */
 .search-mode-dropdown {
   position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  top: calc(100% + 6px);
+  left: -1px;
+  min-width: calc(100% + 1px);
+  overflow: hidden;
   z-index: 20;
   background: #FFFFFF;
-  border: 1px solid #DDDDDD;
+  border: 1px solid var(--fill-color);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .35);
 }
 
 .search-mode-option {
-  padding: 10px 12px;
+  padding: 10px 14px;
   color: #1A1A1A;
   font-size: 14px;
   text-transform: lowercase;
   cursor: pointer;
 
-  &.active,
   &:hover {
-    color: var(--fill-color);
+    background: color-mix(in srgb, var(--fill-color) 8%, #FFFFFF);
+  }
+
+  &.active {
+    background: var(--fill-color);
+    color: #FFFFFF;
   }
 }
 
 .input {
   flex: 1;
   min-width: 0;
-  height: calc(var(--button-size) * 1.1);
+  height: calc(var(--button-size) * 1.1 - 2px);
   padding: 6px 12px;
-  border: 1px solid #979797;
+  border: none;
   border-radius: 0;
   box-shadow: none;
   font-size: 16px;
@@ -225,31 +231,32 @@ export default {
   &:focus {
     outline: none !important;
     box-shadow: none !important;
-    border-color: #979797;
   }
 }
 
 .search-submit {
   flex: none;
   width: calc(var(--button-size) * 1.1);
-  height: calc(var(--button-size) * 1.1);
+  height: calc(var(--button-size) * 1.1 - 2px);
   padding: 0;
   border: none;
-  border-radius: 0 6px 6px 0;
-  /* bouton_loupe.svg carries its own red background: the collection colour
-     here, with the magnifier drawn over it in white */
+  border-radius: 0 5px 5px 0;
   background-color: var(--fill-color);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
+  /* A white ">": it opens the search page, unlike the magnifier that
+     opened this banner */
   &::after {
     content: '';
     display: block;
-    width: 55%;
-    height: 55%;
-    margin: auto;
-    background-color: #FFFFFF;
-    -webkit-mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
-    mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
+    width: 11px;
+    height: 11px;
+    border-top: 3px solid #FFFFFF;
+    border-right: 3px solid #FFFFFF;
+    transform: translateX(-2px) rotate(45deg);
   }
 }
 
@@ -258,9 +265,6 @@ export default {
   .navbar-search {
     height: 56px;
     gap: 12px;
-  }
-  .navbar-search-label {
-    display: none;
   }
   /* The mode selector is cramped: drop its side padding (as SearchPage) */
   .search-mode-trigger {

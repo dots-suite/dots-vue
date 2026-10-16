@@ -1,104 +1,141 @@
 <template>
+  <!-- Under the search bar: the button of the facets panel, the number of
+       active filters with a caret that shows or hides their tags, the tags
+       and "Tout effacer" -->
   <div
-    v-if="hasActiveFilters"
     class="active-filters"
+    :class="{ 'has-filters': activeCount > 0, 'is-collapsed': collapsed }"
   >
-
-    <div class="active-filters-header">
-
+    <div class="filters-controls">
       <button
         type="button"
-        class="sidebar-toggle-btn"
+        class="filters-panel-btn"
         :class="{ 'is-opened': sidebarOpen }"
+        :aria-pressed="sidebarOpen"
         :title="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
-        :aria-label="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
         @click="toggleSidebar"
       >
-        <SearchFilterIcon type="check" />
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M3 6 H21 M6 12 H18 M10 18 H14" />
+        </svg>
+        Filtres
       </button>
 
       <button
+        v-if="activeCount > 0"
         type="button"
-        class="collapse-btn"
+        class="tags-toggle"
+        :aria-expanded="!collapsed"
+        :aria-label="`${collapsed ? 'Afficher' : 'Masquer'} les ${activeCount} filtres actifs`"
         @click="toggleCollapsed"
       >
-        <span class="active-filters-title">Filtres<span class="label-extra"> actifs</span></span>
-        <i class="collapse-arrow" :class="{ opened: !collapsed }" />
+        <span class="count-badge">{{ activeCount }}</span>
+        <i
+          class="caret"
+          :class="{ opened: !collapsed }"
+        />
       </button>
-<!-- supprimer tous les filtres version bouton -->
-      <button
-        v-show="!collapsed"
-        type="button"
-        class="clearall-btn"
-        @click.stop="clearAll"
-      >
-        Réinitialiser<span class="label-extra"> les filtres</span>
-      </button>
-
+      <!-- No filter: a pale 0, nothing to show or hide -->
+      <span
+        v-else
+        class="count-badge is-empty"
+        role="status"
+        aria-label="Aucun filtre actif"
+      >0</span>
     </div>
 
-     <div v-show="!collapsed" class="filter-tags">
-
-      <!-- Facettes -->
+    <template v-if="activeCount > 0">
       <span
-        v-for="facet in facets"
-        :key="`${facet.facetType}-${facet.id}`"
-        class="filter-tag"
+        v-if="!collapsed"
+        class="separator"
+        aria-hidden="true"
+      />
+      <div
+        v-if="!collapsed"
+        class="filter-tags"
+        :class="{ 'with-clear-icon': clearAll === 'icon' }"
       >
-
-        {{ facetTypeLabel(facet) }} : {{ facet.label }}
-
-        <svg
-          class="clear-icon"
-          viewBox="0 0 24 24"
+        <!-- Clear all as a round icon, top right of the tags -->
+        <button
+          v-if="clearAll === 'icon'"
+          type="button"
+          class="clearall-icon-btn"
+          title="Tout effacer"
+          aria-label="Effacer tous les filtres"
+          @click.stop="clearAllFilters"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M5.5 12 a6.5 6.5 0 1 0 2 -4.7 M5.5 4.5 V8.5 H9.5" />
+          </svg>
+        </button>
+        <!-- Facettes -->
+        <button
+          v-for="facet in facets"
+          :key="`${facet.facetType}-${facet.id}`"
+          type="button"
+          class="filter-tag"
+          :aria-label="`Retirer le filtre ${facetTypeLabel(facet)} : ${facet.label}`"
           @click.stop="removeFacet(facet)"
         >
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-      </span>
+          <span class="filter-tag-label">{{ facetTypeLabel(facet) }} :</span>
+          {{ facet.label }}
+          <svg
+            class="clear-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+        </button>
 
-      <!-- Ranges -->
-      <span
-        v-for="(range, rangeKey) in ranges"
-        :key="`range-${rangeKey}`"
-        class="filter-tag"
-      >
-        {{ getRangeLabel(rangeKey) }} :
-        {{ range ? formatRange(range) : '' }}
-
-        <svg
-          class="clear-icon"
-          viewBox="0 0 24 24"
+        <!-- Ranges -->
+        <button
+          v-for="(range, rangeKey) in ranges"
+          :key="`range-${rangeKey}`"
+          type="button"
+          class="filter-tag"
+          :aria-label="`Retirer le filtre ${getRangeLabel(rangeKey)} : ${range ? formatRange(range) : ''}`"
           @click.stop="removeRange(rangeKey)"
         >
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-      </span>
-    </div>
-  </div>
-  <div v-else class="active-filters">
-    <span class="active-filters-empty">
+          <span class="filter-tag-label">{{ getRangeLabel(rangeKey) }} :</span>
+          {{ range ? formatRange(range) : '' }}
+          <svg
+            class="clear-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+        </button>
+      </div>
+      <div
+        v-else
+        class="spacer"
+      />
+
       <button
+        v-if="clearAll === 'link'"
         type="button"
-        class="sidebar-toggle-btn"
-        :class="{ 'is-opened': sidebarOpen }"
-        :title="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
-        :aria-label="sidebarOpen ? 'Fermer les filtres' : 'Ouvrir les filtres'"
-        @click="toggleSidebar"
+        class="clearall-btn"
+        @click.stop="clearAllFilters"
       >
-        <SearchFilterIcon type="check" />
+        Tout effacer
       </button>
-      <span class="active-filters-title">Aucun filtre actif</span>
-    </span>
+    </template>
   </div>
 </template>
 <script setup>
 import { computed, ref } from 'vue'
-import SearchFilterIcon from '@/assets/images/SearchFilterIcon.vue'
 
 const props = defineProps({
 
@@ -127,6 +164,12 @@ const props = defineProps({
   sidebarOpen:{
     type:Boolean,
     default:false
+  },
+  // "Tout effacer": a link at the end of the row, or a round icon at the
+  // top right of the tags (mobile facets panel)
+  clearAll:{
+    type:String,
+    default:'link'
   }
 })
 
@@ -137,7 +180,7 @@ const emit = defineEmits([
   'toggle-sidebar'
 ])
 
-// ajouts Charlie
+// Tags shown or hidden by the caret next to their number
 const collapsed = ref(false)
 
 function toggleCollapsed(){
@@ -147,14 +190,10 @@ function toggleCollapsed(){
 function toggleSidebar(){
   emit('toggle-sidebar')
 }
-//
-const hasActiveFilters = computed(() => {
 
-  return (
-    props.facets.length > 0 ||
-    Object.keys(props.ranges).length > 0
-  )
-})
+const activeCount = computed(() =>
+  props.facets.length + Object.keys(props.ranges).length
+)
 
 // labels issus de la config
 // NB : les facettes temporelles sont indexées par leur "key" canonique
@@ -216,192 +255,239 @@ function removeRange(rangeKey){
   )
 }
 
-function clearAll(){
+function clearAllFilters(){
   emit('clear-all')
 }
 
 </script>
 <style scoped>
 
+/* One row under the search bar, aligned on its left edge (12px in the
+   search form); the tags wrap, all visible */
 .active-filters {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: #ffffff00;
-  padding: .75rem 1rem .75rem 12px;
-  border-bottom: 0 solid #e2e2e2;
-  box-shadow: none;
-  font-family: "Barlow", sans-serif !important;
+  display: flex;
+  flex: 1;
+  width: 100%;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px 14px;
+  font-family: var(--font-primary), sans-serif;
 }
 
-.active-filters-header {
-  display: inline-flex;
+.filters-controls {
+  display: flex;
+  flex: none;
   align-items: center;
-  gap: 1rem;
-  min-height: var(--button-size);
+  gap: 4px;
 }
 
-.active-filters-title {
-  font-family: "Barlow", sans-serif !important;
-  font-size: .95rem !important;
-  font-weight: 600 !important;
-  padding-left: 0rem;
-  color: #1a1a1a !important;
-}
-
-.active-filters-empty {
-  display: inline-flex;
+/* Opens and closes the facets panel: filled while it is open */
+.filters-panel-btn {
+  display: flex;
   align-items: center;
-  gap: 1rem;
-  /* Off the baseline, or the line box adds the descender space below the
-     button: the space under it would exceed the 12px above the search bar */
-  vertical-align: top;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--fill-color);
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: var(--fill-color);
+  font: 500 14px var(--font-primary), sans-serif;
+  cursor: pointer;
+
+  & svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+  }
+
+  &.is-opened {
+    background-color: var(--fill-color);
+    color: #ffffff;
+  }
 }
 
-/* The button's style lives in main.css, shared with the sidebar; only the
-   lens mask follows its backdrop, here .search-form's. */
-.sidebar-toggle-btn {
-  --icon-bg: #f0f0f0;
-}
-
-.collapse-btn {
-  display: inline-flex;
+/* Number of active filters + caret: shows or hides their tags */
+.tags-toggle {
+  display: flex;
   align-items: center;
-  gap: .35rem;
-  background: none;
+  gap: 6px;
+  height: 36px;
+  padding: 0 6px;
   border: none;
-  padding: 0;
-  font: inherit;
-  font-family: "Barlow", sans-serif !important;
+  border-radius: 6px;
+  background: transparent;
+  color: #1a1a1a;
   cursor: pointer;
 }
 
-.collapse-arrow {
-  display: inline-block;
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border-radius: 11px;
+  background-color: var(--fill-color);
+  color: #ffffff;
+  font: 500 12px var(--font-primary), sans-serif;
+}
+
+.caret {
   width: 0;
   height: 0;
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 6px solid #666;
+  border-top: 6px solid #1a1a1a;
   transition: transform .15s ease;
-}
 
-.collapse-arrow.opened {
-  transform: rotate(180deg);
-}
-
-/*
-.active-filters {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: #fff;
-  padding: .75rem 1rem;
-  border-bottom: 1px solid #e2e2e2;
-  box-shadow: 0 2px 6px rgba(0,0,0,.06);
-}
-
-.active-filters-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: .75rem;
-}
-
-.active-filters-title {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-  color: #1a1a1a;
-}
-  */
-/* Under 768px the row no longer fits: the labels are shortened so the
-   button stays to their left. */
-@media screen and (max-width: 768px) {
-  .label-extra {
-    display: none;
+  &.opened {
+    transform: rotate(180deg);
   }
+}
 
-  .active-filters-header {
-    gap: .5rem;
-  }
+.count-badge.is-empty {
+  margin: 0 6px;
+  background-color: color-mix(in srgb, var(--fill-color) 12%, #ffffff);
+  color: var(--fill-color);
+}
 
-  .clearall-btn {
-    padding: .35rem .5rem;
-  }
+.separator {
+  flex: none;
+  width: 1px;
+  height: 22px;
+  margin-top: 7px;
+  background-color: #cfcfcf;
 }
 
 .filter-tags {
-  display:flex;
-  flex-wrap:wrap;
-  gap:.5rem;
-  padding-top:.5rem;
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 3px;
 }
 
+.spacer {
+  flex: 1;
+}
+
+/* The tag removes its filter: border tinted with the collection colour */
 .filter-tag {
-  display:flex;
-  align-items:center;
-  gap:.35rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px 0 12px;
+  border: 1px solid color-mix(in srgb, var(--fill-color) 22%, #ffffff);
+  border-radius: 15px;
+  background-color: #ffffff;
+  font: 13px var(--font-primary), sans-serif;
+  color: #1a1a1a;
+  cursor: pointer;
 
-  background:#fff;
-  border:1px solid #ddd;
-  border-radius:15px;
+  &:hover,
+  &:focus-visible {
+    border-color: var(--fill-color);
+  }
+}
 
-  padding:.25rem .75rem;
-
-  font-family: "Barlow", sans-serif !important;
-  font-size: .85rem !important;
-  font-weight: 500 !important;
-  line-height: 1.4 !important;
-  color: #333 !important;
+.filter-tag-label {
+  color: #5c5c5c;
 }
 
 .clear-icon {
-  width:14px;
-  height:14px;
-
-  cursor:pointer;
-
-  fill:none;
-  stroke:#666;
-  stroke-width:2;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--fill-color);
+  stroke-width: 2.2;
+  stroke-linecap: round;
 }
 
-.clearall-icon {
-  width:18px;
-  height:18px;
-  cursor:pointer;
-  fill:none;
-  align-self:center;
-  stroke:#000000ad;
-  stroke-width:2;
+/* Round icon: the collection colour, a white "reset" arrow */
+.filter-tags.with-clear-icon {
+  position: relative;
+  padding-right: 40px;
 }
+.clearall-icon-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--fill-color);
+  cursor: pointer;
 
-.clear-icon:hover {
-  stroke:#b9192f;
+  & svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--fill-color) 80%, #000000);
+  }
 }
 
 .clearall-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  background: none;
-  color: #000000;
+  flex: none;
+  height: 36px;
+  padding: 0 4px;
   border: none;
-  border-radius: 20px;
-  padding: .35rem .85rem;
-  font-size: .85rem;
-  font-weight: 100;
+  background: transparent;
+  font: 500 13px var(--font-primary), sans-serif;
+  color: var(--fill-color);
+  text-decoration: underline;
   cursor: pointer;
 }
 
-.clearall-btn:hover,
-.clearall-btn:focus-visible {
-  background: #b9192f;
-  border-color: #b9192f;
-  color: #fff;
+/* Narrow: the tags go to their own line under the controls */
+@media screen and (max-width: 768px) {
+  .active-filters {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .separator {
+    display: none;
+  }
+
+  .filter-tags {
+    order: 3;
+    flex: 1 1 100%;
+    gap: 6px;
+    padding-top: 0;
+  }
+
+  .spacer {
+    display: none;
+  }
+
+  .clearall-btn {
+    margin-left: auto;
+  }
+
+  .filter-tag-label {
+    display: none;
+  }
 }
 
 </style>
