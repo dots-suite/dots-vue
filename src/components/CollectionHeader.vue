@@ -205,7 +205,7 @@ export default {
       route.name === 'CustomPage' && route.params.customPage?.toLowerCase() === 'search'
     )
     // Pages under the collection home: compact banner, the title alone
-    const isCompact = computed(() => isSearchPage.value || route.name === 'About')
+    const isCompact = computed(() => isSearchPage.value || ['About', 'Terms'].includes(route.name))
 
     const toggleAbout = () => {
       isAboutOpened.value = !isAboutOpened.value
