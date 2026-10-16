@@ -63,9 +63,8 @@
         v-if="searchRoute"
         type="button"
         class="search-link"
-        :class="{ 'is-active': isSearchPage || isSearchOpened }"
-        :title="isSearchPage ? 'Quitter la recherche' : 'Rechercher'"
-        :aria-label="isSearchPage ? 'Quitter la recherche' : 'Rechercher'"
+        title="Rechercher"
+        aria-label="Rechercher"
         :aria-expanded="isSearchPage ? undefined : isSearchOpened"
         @click.stop="toggleSearch"
       >
@@ -118,7 +117,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import BurgerButton from './Burger.vue'
 import NavbarSearch from './NavbarSearch.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import defaultLogo from '@/assets/images/logo_dots_circle.svg'
 import { getSearchRoute } from '@/composables/search-page'
 
@@ -210,13 +209,10 @@ export default {
     watch(isSearchPage, (onSearchPage) => {
       if (onSearchPage) isSearchOpened.value = false
     })
-    const router = useRouter()
+    // On the search page its bar is already there: the magnifier does nothing
     const toggleSearch = () => {
-      if (isSearchPage.value) {
-        router.push({ name: 'Home', params: { collId: searchRoute.value.params.collId } })
-      } else {
-        isSearchOpened.value = !isSearchOpened.value
-      }
+      if (isSearchPage.value) return
+      isSearchOpened.value = !isSearchOpened.value
     }
 
 
@@ -565,10 +561,10 @@ nav span.level-item:not(:last-child)::after {
   position: relative;
   isolation: isolate;
 }
-/* Lighter square behind the magnifier while its search is shown (banner
-   opened, or on the search page):
-   the collection colour with 16% white, whatever --fill-color the settings
-   give. Drawn around the 30px icon so the layout does not move. */
+/* Lighter square behind the magnifier on hover only (otherwise the
+   navbar's background): the collection colour with 8% white, whatever
+   --fill-color the settings give. Drawn around the 30px icon so the layout
+   does not move. */
 .search-link::before {
   content: '';
   position: absolute;
@@ -580,9 +576,6 @@ nav span.level-item:not(:last-child)::after {
 }
 .search-link:hover::before {
   background-color: color-mix(in srgb, var(--fill-color) 92%, #ffffff);
-}
-.search-link.is-active::before {
-  background-color: color-mix(in srgb, var(--fill-color) 84%, #ffffff);
 }
 /* Search banner content over the navbar's content width: same padding as
    the nav, at each breakpoint below */
