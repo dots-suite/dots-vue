@@ -181,6 +181,15 @@ watch(
 // Inputs -> slider
 // --------------------------
 
+// Leaving a year field unchanged must not send the range again: a new
+// array, even with the same bounds, triggers the change and becomes an
+// active filter
+function setSliderIfChanged(min, max) {
+  const [currentMin, currentMax] = sliderValue.value || []
+  if (currentMin === min && currentMax === max) return
+  sliderValue.value = [min, max]
+}
+
 function checkMin() {
   const [min, max] = clampRange(
     inputMin.value,
@@ -189,7 +198,7 @@ function checkMin() {
 
   inputMin.value = min
   inputMax.value = max
-  sliderValue.value = [min, max]
+  setSliderIfChanged(min, max)
 }
 
 function checkMax() {
@@ -200,7 +209,7 @@ function checkMax() {
 
   inputMin.value = min
   inputMax.value = max
-  sliderValue.value = [min, max]
+  setSliderIfChanged(min, max)
 }
 
 
