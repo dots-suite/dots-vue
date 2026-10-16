@@ -1,12 +1,6 @@
 <template>
   <div class="dots-ui collection-wrapper">
-    <CollectionHeader
-      :collection-config="collConfig"
-      :application-config="appConfig"
-      :current-collection="currCollection"
-      :collection-identifier="collectionId"
-      :root-collection-identifier="rootCollectionId"
-    />
+    <!-- No collection banner: the search bar right under the navbar -->
     <div
       ref="stickyHeaderEl"
       class="sticky-search-header app-width-margin"
@@ -20,24 +14,20 @@
             >
               <!-- Fulltext or Metadata search selector -->
               <div class="search-mode-wrapper">
-                <!-- SELECT BUTTON -->
-                <div class="search-mode-trigger" @click="toggleModeDropdown">
-                  <span>{{ currentSearchLabel }}</span>
-                  <i class="arrow"></i>
-                </div>
-
-                <!-- DROPDOWN -->
-                <div v-if="isModeOpen" class="search-mode-dropdown">
-                  <div
-                    v-for="opt in searchTypeOptions"
-                    :key="opt.value"
-                    class="search-mode-option"
-                    :class="{ active: searchType === opt.value }"
-                    @click="selectSearchType(opt.value)"
-                  >
-                    {{ opt.text }}
-                  </div>
-                </div>
+                <!-- Two modes: a click switches to the other one -->
+                <button
+                  type="button"
+                  class="search-mode-trigger"
+                  :title="`Passer en recherche ${otherSearchLabel}`"
+                  :aria-label="`Recherche ${currentSearchLabel} : passer en recherche ${otherSearchLabel}`"
+                  @click="switchSearchType"
+                >
+                  <span class="search-mode-label"><span
+                    class="search-mode-switch"
+                    :class="{ 'is-on': searchType === 'fulltext' }"
+                    aria-hidden="true"
+                  /><span class="search-mode-text"><span class="search-mode-long">{{ currentSearchLabel }}</span><span class="search-mode-short">{{ searchType === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
+                </button>
               </div>
               <!-- input -->
               <div class="search-input-field">
@@ -178,7 +168,6 @@ import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
 
-import CollectionHeader from '@/components/CollectionHeader.vue'
 import { getInvalidQueryMessage } from '@/composables/search-page'
 import ResourcesList from '@/components/ResourcesList.vue'
 import SearchFacets from '@/components/SearchFacets.vue'
@@ -189,7 +178,6 @@ export default {
   components: {
     SearchFacets,
     ActiveSearchFilters,
-    CollectionHeader,
     ResourcesList
   },
   props: {
@@ -757,8 +745,6 @@ export default {
     // field or the mode change, nor while the query is invalid
     const searchedWithHits = ref(isFulltextSearch.value && !!search.term.value)
 
-    const isModeOpen = ref(false)
-
     const searchTypeOptions = [
       { value: 'notice', text: 'notices' },
       { value: 'fulltext', text: 'plein texte' }
@@ -781,13 +767,12 @@ export default {
       return searchTypeOptions.find(o => o.value === searchType.value)?.text
     })
 
-    function toggleModeDropdown() {
-      isModeOpen.value = !isModeOpen.value
-    }
+    const otherSearchLabel = computed(() => {
+      return searchTypeOptions.find(o => o.value !== searchType.value)?.text
+    })
 
-    function selectSearchType(val) {
-      searchType.value = val
-      isModeOpen.value = false
+    function switchSearchType() {
+      searchType.value = searchType.value === 'fulltext' ? 'notice' : 'fulltext'
       executeSearches()
     }
 
@@ -1006,12 +991,11 @@ export default {
       clearAllFilters,
       searchedWithHits,
       isFulltextSearch,
-      toggleModeDropdown,
+      switchSearchType,
       currentSearchLabel,
-      isModeOpen,
+      otherSearchLabel,
       searchTypeOptions,
       searchType,
-      selectSearchType,
       inputTerm,
       isInvalidQuery,
       invalidQueryMessage,
@@ -1212,6 +1196,8 @@ tr td.chevron-up a::before {
    about button on the search page), so the original 12px */
 .collection-wrapper {
   --search-bar-offset: 12px;
+  /* How far the stuck header goes above the viewport top */
+  --search-bar-stuck-shift: calc(12px - var(--search-bar-offset));
 }
 
 /* Once stuck, the header sits above the viewport top by the extra space,
@@ -1219,7 +1205,7 @@ tr td.chevron-up a::before {
    make the list below jump as the header sticks */
 .sticky-search-header {
   position: sticky;
-  top: calc(12px - var(--search-bar-offset));
+  top: var(--search-bar-stuck-shift);
   z-index: 22;
   background-color: #ffffff;
   border-top-left-radius: 0;
@@ -1274,12 +1260,12 @@ tr td.chevron-up a::before {
   position: sticky;
   /* Bottom of the stuck search header, which sticks above the viewport top
      by the space it hides (see .sticky-search-header) */
-  top: calc(var(--search-header-height, 0px) + 12px - var(--search-bar-offset));
+  top: calc(var(--search-header-height, 0px) + var(--search-bar-stuck-shift));
   align-self: flex-start;
   /* Scrolls on its own, down to the viewport bottom (height set from its
      position, see fitSidebar): the wheel over the filters scrolls them,
      not the page and its table, even at their end */
-  max-height: var(--sidebar-max-height, calc(100vh - (var(--search-header-height, 0px) + 12px - var(--search-bar-offset))));
+  max-height: var(--sidebar-max-height, calc(100vh - (var(--search-header-height, 0px) + var(--search-bar-stuck-shift))));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1417,9 +1403,15 @@ tr td.chevron-up a::before {
   }
 }
 @media screen and (max-width: 768px) {
-  /* ...two lines from 768px down */
+  /* ...on phones, 12px under its line, as between the bar and the filters */
   .search-input-wrapper.has-error {
-    margin-bottom: 52px;
+    margin-bottom: 23px;
+  }
+}
+@media screen and (max-width: 359px) {
+  /* ...two lines on the narrowest */
+  .search-input-wrapper.has-error {
+    margin-bottom: 42px;
   }
 }
 
@@ -1508,8 +1500,8 @@ tr td.chevron-up a::before {
   &::after {
     content: '';
     display: block;
-    width: 55%;
-    height: 55%;
+    width: 70%;
+    height: 70%;
     margin: auto;
     background-color: #FFFFFF;
     -webkit-mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
@@ -1630,49 +1622,42 @@ tr td.chevron-up a::before {
   border-radius: 6px 0 0 6px;
 
   cursor: pointer;
-  font-size: 14px;
+  /* a <button>: it does not inherit the font */
+  font-family: var(--font-primary), sans-serif;
+  font-size: var(--font-default-size);
   text-transform: lowercase;
 }
 
-.search-mode-trigger .arrow {
-  width: 7px;
-  height: 7px;
-  margin: -4px 2px 0;
-  border-right: 2px solid var(--fill-color);
-  border-bottom: 2px solid var(--fill-color);
-  transform: rotate(45deg);
-}
+/* Switches mode: a vertical switch, its knob down (notices) or up (full
+   text) */
+.search-mode-switch {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 24px;
+  border-radius: 7px;
+  background-color: color-mix(in srgb, var(--fill-color) 25%, #ffffff);
+  transition: background-color .15s ease;
 
-/* The list looks like the bar: same border and radius, under it */
-.search-mode-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: -1px;
-  min-width: calc(100% + 1px);
-  overflow: hidden;
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--fill-color);
+    transition: transform .15s ease, background-color .15s ease;
+  }
 
-  background: white;
-  border: 1px solid var(--fill-color);
-  border-radius: 6px;
-  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .35);
-  z-index: 20;
-}
-
-.search-mode-option {
-  padding: 10px 14px;
-  color: #1a1a1a;
-  font-size: 14px;
-  text-transform: lowercase;
-  cursor: pointer;
-}
-
-.search-mode-option:hover {
-  background: color-mix(in srgb, var(--fill-color) 8%, #ffffff);
-}
-
-.search-mode-option.active {
-  background: var(--fill-color);
-  color: white;
+  &.is-on {
+    background-color: var(--fill-color);
+  }
+  &.is-on::after {
+    transform: translateY(-10px);
+    background-color: #ffffff;
+  }
 }
 
 /* sliders */
@@ -1730,9 +1715,11 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .search-facets {
-  /* padding bottom : prevent last facet touches the footer
+  /* padding top: the "Filtres" header centred on the documents count and
+     the pagination buttons beside it
+     padding bottom : prevent last facet touches the footer
      note : padding under an opened overlay remains 24px. */
-  padding: 27px 24px 24px 1rem;
+  padding: 22px 24px 24px 1rem;
 }
 
 .active-filters-and-sliders {
@@ -2091,7 +2078,7 @@ tr.row-details :deep(em),
   }
   /* The mode selector is cramped: drop its side padding */
   .search-mode-trigger {
-    padding: 0 8px;
+    padding: 0 8px 0 13px;
     gap: 4px;
   }
 
@@ -2143,8 +2130,27 @@ tr.row-details :deep(em),
   .backdrop-fade-leave-to {
     opacity: 0;
   }
+  /* No top padding: the panel's 10px on top are its sticky header's, so
+     they stay while the panel scrolls (see SearchFacets) */
   .search-facets {
-    padding: 10px 24px 24px 24px;
+    padding: 0 24px 24px 24px;
+  }
+  /* The panel's scrollbar off its edge, so it can be seen: a transparent
+     border around the thumb (the standard scrollbar-width would override
+     these rules, hence auto) */
+  .facets-sidebar {
+    scrollbar-width: auto;
+  }
+  .facets-sidebar::-webkit-scrollbar {
+    width: 14px;
+  }
+  .facets-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .facets-sidebar::-webkit-scrollbar-thumb {
+    border: 4px solid transparent;
+    border-radius: 7px;
+    background: #a8a8a8 padding-box;
   }
 }
 @media screen and (max-width: 640px) {
@@ -2154,7 +2160,7 @@ tr.row-details :deep(em),
      not exist and the offset would leave a transparent gap. */
   @supports (-webkit-text-size-adjust: none) and (font: -apple-system-body) and (-webkit-touch-callout: none) {
     .sticky-search-header {
-      top: calc(6px + 12px - var(--search-bar-offset));
+      top: calc(6px + var(--search-bar-stuck-shift));
     }
   }
 
@@ -2185,26 +2191,110 @@ tr.row-details :deep(em),
 }
 
 
-/* The mode list's options no bigger than the selector button itself: its
-   height (inside a 1px border) and side padding */
-.search-mode-option {
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  height: calc(var(--button-size) - 2px);
-  padding: 0 14px;
+/* No collection banner on the search page: the band right under the
+   navbar, laid out like the navbar search banner (full-width grey
+   background, content over the navbar's content width) */
+.collection-wrapper {
+  --search-bar-offset: 22px;
 }
-@media screen and (max-width: 768px) {
-  .search-mode-option {
-    padding: 0 8px;
+.sticky-search-header.app-width-margin {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-left: calc((100% - var(--default-content-width)) / 2) !important;
+  padding-right: calc((100% - var(--default-content-width)) / 2) !important;
+  background-color: #f0f0f0;
+}
+.sticky-search-header .search-form {
+  border-radius: 0;
+}
+.sticky-search-header .search-form > .search-bar-row {
+  padding-left: 0;
+}
+.sticky-search-header .search-submit,
+.sticky-search-header .search-reset {
+  margin-right: 0;
+}
+.sticky-search-header :deep(.active-filters) {
+  padding-left: 0;
+  padding-right: 0;
+}
+@media screen and (max-width: 1320px) {
+  .sticky-search-header.app-width-margin {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
   }
 }
+/* On tablets and phones the stuck band keeps its space above the bar: it
+   sticks at the viewport top, not above it */
+@media screen and (max-width: 1024px) {
+  .collection-wrapper {
+    --search-bar-stuck-shift: 0px;
+  }
+}
+@media screen and (max-width: 768px) {
+  .collection-wrapper {
+    --search-bar-offset: 12px;
+  }
+  .sticky-search-header.app-width-margin {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
+/* The switch in the label, before the text, its centre over the "Filtres"
+   button's icon under the bar (13px in) */
+.search-mode-label {
+  display: flex;
+  align-items: center;
+  /* the text from the "Filtres" word's left edge */
+  gap: 9px;
+}
+/* A capital at the start (the names stay lowercase in the titles) */
+.search-mode-text {
+  display: inline-block;
 
-/* The mode list as wide as its words (never wider than the selector), no
-   empty space after them */
-.search-mode-dropdown {
-  right: auto;
-  width: max-content;
-  min-width: 0;
+  &::first-letter {
+    text-transform: uppercase;
+  }
+}
+/* From 769px, the mode switch as wide as the "Filtres" button with its
+   counter right under the bar, the switch over the button's icon, the text
+   over its word. Below, the layout changes. */
+@media screen and (min-width: 769px) {
+  /* the placeholder (and the query) from the separator of the active
+     filters under the bar: the "Filtres" button's right edge + 13px, the
+     6px caret, 13px */
+  .search-form .input {
+    padding-left: 32px;
+  }
+  .search-mode-trigger {
+    justify-content: flex-start;
+    box-sizing: border-box;
+    /* the "Filtres" button with a one-digit counter, minus the bar's border */
+    width: 124px;
+    padding-left: 13px;
+    padding-right: 0;
+  }
+}
+/* Very narrow screens: "texte" for "plein texte", and less room around
+   the clear cross */
+.search-mode-short {
+  display: none;
+}
+@media screen and (max-width: 480px) {
+  .search-mode-long {
+    display: none;
+  }
+  .search-mode-short {
+    display: inline;
+  }
+  .search-clear {
+    right: 4px;
+  }
+  .search-form .input,
+  .search-form .input.input-error,
+  .search-form .input.input-error:focus {
+    padding-right: 30px;
+  }
 }
 </style>

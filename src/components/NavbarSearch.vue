@@ -6,30 +6,21 @@
     @keydown.esc="$emit('close')"
   >
     <div class="navbar-search-bar">
-      <!-- Same controls as the search page bar -->
+      <!-- Same controls as the search page bar: a click switches mode -->
       <div class="search-mode-wrapper">
         <button
           type="button"
           class="search-mode-trigger"
-          @click="isModeOpen = !isModeOpen"
+          :title="`Passer en recherche ${otherModeLabel}`"
+          :aria-label="`Recherche ${currentModeLabel} : passer en recherche ${otherModeLabel}`"
+          @click="switchMode"
         >
-          <span>{{ currentModeLabel }}</span>
-          <i class="arrow" />
+          <span class="search-mode-label"><span
+            class="search-mode-switch"
+            :class="{ 'is-on': mode === 'fulltext' }"
+            aria-hidden="true"
+          /><span class="search-mode-text"><span class="search-mode-long">{{ currentModeLabel }}</span><span class="search-mode-short">{{ mode === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
         </button>
-        <div
-          v-if="isModeOpen"
-          class="search-mode-dropdown"
-        >
-          <div
-            v-for="opt in modeOptions"
-            :key="opt.value"
-            class="search-mode-option"
-            :class="{ active: mode === opt.value }"
-            @click="selectMode(opt.value)"
-          >
-            {{ opt.text }}
-          </div>
-        </div>
       </div>
       <div class="navbar-search-field">
         <input
@@ -110,14 +101,14 @@ export default {
     // Full text by default (no search yet), as the store
     const mode = ref((activeSearch?.isFulltextSearch ?? true) ? 'fulltext' : 'notice')
     const term = ref('')
-    const isModeOpen = ref(false)
     const inputEl = ref(null)
 
     const currentModeLabel = computed(() => modeOptions.find(o => o.value === mode.value)?.text)
 
-    const selectMode = (value) => {
-      mode.value = value
-      isModeOpen.value = false
+    const otherModeLabel = computed(() => modeOptions.find(o => o.value !== mode.value)?.text)
+
+    const switchMode = () => {
+      mode.value = mode.value === 'fulltext' ? 'notice' : 'fulltext'
       inputEl.value?.focus()
     }
 
@@ -147,10 +138,10 @@ export default {
       modeOptions,
       mode,
       term,
-      isModeOpen,
       inputEl,
       currentModeLabel,
-      selectMode,
+      otherModeLabel,
+      switchMode,
       invalidQueryMessage,
       clearTerm,
       submit
@@ -213,48 +204,40 @@ export default {
   color: var(--fill-color);
   /* a <button>: it does not inherit the font, as the search page's */
   font-family: var(--font-primary), sans-serif;
-  font-size: 14px;
+  font-size: var(--font-default-size);
   text-transform: lowercase;
   cursor: pointer;
 }
 
-.search-mode-trigger .arrow {
-  width: 7px;
-  height: 7px;
-  margin: -4px 2px 0;
-  border-right: 2px solid var(--fill-color);
-  border-bottom: 2px solid var(--fill-color);
-  transform: rotate(45deg);
-}
+/* Switches mode: a vertical switch, its knob down (notices) or up (full
+   text) */
+.search-mode-switch {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 24px;
+  border-radius: 7px;
+  background-color: color-mix(in srgb, var(--fill-color) 25%, #ffffff);
+  transition: background-color .15s ease;
 
-/* The list looks like the bar: same border and radius, under it */
-.search-mode-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: -1px;
-  min-width: calc(100% + 1px);
-  overflow: hidden;
-  z-index: 20;
-  background: #FFFFFF;
-  border: 1px solid var(--fill-color);
-  border-radius: 6px;
-  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .35);
-}
-
-.search-mode-option {
-  padding: 10px 14px;
-  color: #1A1A1A;
-  font-size: 14px;
-  text-transform: lowercase;
-  cursor: pointer;
-
-  &:hover {
-    background: color-mix(in srgb, var(--fill-color) 8%, #FFFFFF);
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--fill-color);
+    transition: transform .15s ease, background-color .15s ease;
   }
 
-  &.active {
-    background: var(--fill-color);
-    color: #FFFFFF;
+  &.is-on {
+    background-color: var(--fill-color);
+  }
+  &.is-on::after {
+    transform: translateY(-10px);
+    background-color: #ffffff;
   }
 }
 
@@ -400,7 +383,7 @@ export default {
   }
   /* The mode selector is cramped: drop its side padding (as SearchPage) */
   .search-mode-trigger {
-    padding: 0 8px;
+    padding: 0 8px 0 13px;
     gap: 4px;
   }
 }
@@ -441,33 +424,10 @@ export default {
     padding-top: 11px;
     padding-bottom: 11px;
   }
-  /* the error wraps to two lines there */
+  /* 12px under the error's line */
   .navbar-search.has-error {
-    padding-bottom: 62px;
+    padding-bottom: 35px;
   }
-}
-
-/* The mode list's options no bigger than the selector button itself: its
-   height (inside a 1px border) and side padding */
-.search-mode-option {
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  height: calc(var(--button-size) - 2px);
-  padding: 0 14px;
-}
-@media screen and (max-width: 768px) {
-  .search-mode-option {
-    padding: 0 8px;
-  }
-}
-
-/* The mode list as wide as its words (never wider than the selector), no
-   empty space after them */
-.search-mode-dropdown {
-  right: auto;
-  width: max-content;
-  min-width: 0;
 }
 
 /* The bar from the band's top, 22px (12px on phones) under the navbar: the
@@ -479,6 +439,62 @@ export default {
 @media screen and (max-width: 768px) {
   .navbar-search {
     padding-top: 12px;
+  }
+}
+/* The switch in the label, before the text, its centre over the "Filtres"
+   button's icon under the bar (13px in) */
+.search-mode-label {
+  display: flex;
+  align-items: center;
+  /* the text from the "Filtres" word's left edge */
+  gap: 9px;
+}
+/* A capital at the start (the names stay lowercase in the titles) */
+.search-mode-text {
+  display: inline-block;
+
+  &::first-letter {
+    text-transform: uppercase;
+  }
+}
+/* From 769px, the mode switch as wide as the "Filtres" button with its
+   counter right under the bar, the switch over the button's icon, the text
+   over its word. Below, the layout changes. */
+@media screen and (min-width: 769px) {
+  /* the placeholder (and the query) from the separator of the active
+     filters under the bar: the "Filtres" button's right edge + 13px, the
+     6px caret, 13px */
+  .input {
+    padding-left: 32px;
+  }
+  .search-mode-trigger {
+    justify-content: flex-start;
+    box-sizing: border-box;
+    /* the "Filtres" button with a one-digit counter, minus the bar's border */
+    width: 124px;
+    padding-left: 13px;
+    padding-right: 0;
+  }
+}
+/* Very narrow screens: "texte" for "plein texte", and less room around
+   the clear cross */
+.search-mode-short {
+  display: none;
+}
+@media screen and (max-width: 480px) {
+  .search-mode-long {
+    display: none;
+  }
+  .search-mode-short {
+    display: inline;
+  }
+  .search-clear {
+    right: 4px;
+  }
+  .input,
+  .input.input-error,
+  .input.input-error:focus {
+    padding-right: 30px;
   }
 }
 </style>
