@@ -608,6 +608,11 @@ export default {
 .collection-list.is-compact .collection-image .collection-component {
   object-fit: contain !important;
 }
+/* Its title without the paragraph margin that pages outside .dots-ui
+   (terms of service) still give it */
+.is-compact .title-tile > p {
+  margin: 0;
+}
 .is-compact .page-header .wrapper > .tile.article {
   display: flex;
   flex-direction: column;
