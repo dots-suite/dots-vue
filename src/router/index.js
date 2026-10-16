@@ -55,7 +55,11 @@ if (isDocProjectIdIncluded) {
         props: true
       },
       {
-        path: '/:collId/:customPage',
+        // Not "about": its optional param ranks '/:collId?/about' below this
+        // route (first segment 52 vs 60), so '/:collId/about' typed in
+        // would land here instead of on About. The lookahead's ")" is
+        // escaped: the path parser ends a param regexp at the first ")".
+        path: '/:collId/:customPage((?!about$\\)[^/]+)',
         name: 'CustomPage',
         component: () => import('@/views/CustomPageLoader.vue'),
         props: true
