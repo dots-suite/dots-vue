@@ -62,7 +62,8 @@ function createEmptySearchState() {
     // Fragment types of the collection with their counts, from the API
     granularities: [],
 
-    isFulltextSearch: false,
+    // Default search mode: full text
+    isFulltextSearch: true,
     isResultTableMode: true,
 
     collectionId: null,
