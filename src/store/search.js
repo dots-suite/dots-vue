@@ -57,8 +57,6 @@ function createEmptySearchState() {
 
     // Fragment type (citeType) listed instead of resources, null for resources
     granularity: null,
-    // Levels fragment results are grouped by: 'subCollection', 'resource'
-    groupBy: [],
     // Fragment types of the collection with their counts, from the API
     granularities: [],
 
@@ -351,14 +349,6 @@ export default {
       s.sorts = ''
       s.result = []
 
-      invalidatePagination(s)
-    },
-
-    setSearchGroupBy(state, v) {
-      const s = getProject(state)
-      if (!s) return
-
-      s.groupBy = Array.isArray(v) ? v : []
       invalidatePagination(s)
     },
 

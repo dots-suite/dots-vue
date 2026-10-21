@@ -166,23 +166,6 @@
               </option>
             </select>
           </div>
-          <fieldset
-            v-if="granularity"
-            class="results-group-by"
-          >
-            <legend>Regrouper par</legend>
-            <label
-              v-for="option in groupByOptions"
-              :key="option.value"
-            >
-              <input
-                type="checkbox"
-                :checked="groupBy.includes(option.value)"
-                @change="toggleGroupBy(option.value)"
-              >
-              {{ option.label }}
-            </label>
-          </fieldset>
         </div>
         <div class="document-list list-mode">
           <ResourcesList
@@ -197,7 +180,6 @@
             :total-buckets="search.bucketCount.value"
             :is-with-highlights="searchedWithHits"
             :is-fragment-list="!!granularity"
-            :group-by="groupBy"
             :count-label="fragmentCountLabel"
             :collection-indexed="search.collectionIndexed.value"
             @sort-change="updateSort"
@@ -295,10 +277,9 @@ export default {
 
     // Fragment type listed instead of resources (citeType), null for resources
     const granularity = search.granularity
-    const groupBy = search.groupBy
 
     // searchConfig.granularities.<citeType>: same keys as searchConfig (facets,
-    // temporalFacets) plus label, columns and groupBy, for that fragment type;
+    // temporalFacets) plus label and columns, for that fragment type;
     // granularities.default (default.conf.json) fills the keys it does not set
     const granularityConfig = computed(() => {
       if (!granularity.value) return null
@@ -334,11 +315,6 @@ export default {
         }))
     })
 
-    const groupByOptions = [
-      { value: 'subCollection', label: 'Sous-collection' },
-      { value: 'resource', label: 'Ressource' }
-    ]
-
     const fragmentCountLabel = computed(() => {
       if (!granularity.value) return null
 
@@ -348,9 +324,6 @@ export default {
 
     function selectGranularity(value) {
       search.setGranularity(value || null)
-      search.setGroupBy(
-        value ? collConfig.value?.searchConfig?.granularities?.[value]?.groupBy || [] : []
-      )
 
       // The store dropped the sort; the inputSort watcher then searches again
       if (inputSort.value) {
@@ -358,15 +331,6 @@ export default {
       } else {
         executeSearches()
       }
-    }
-
-    function toggleGroupBy(value) {
-      const next = groupBy.value.includes(value)
-        ? groupBy.value.filter(v => v !== value)
-        : [...groupBy.value, value]
-
-      search.setGroupBy(groupByOptions.map(o => o.value).filter(v => next.includes(v)))
-      executeSearches()
     }
 
     // Documents found, as the table counts them: in full text with a term,
@@ -711,10 +675,6 @@ export default {
             tei: fragment.metadata?.tei || {},
             resource: resourceLabel,
             subCollection: subCollection?.label || '',
-            groupKeys: {
-              subCollection,
-              resource: { id: fragment.resource_id, label: resourceLabel }
-            },
             highlights: withSnippets ? fragment.highlight?.content || [] : [],
             passageUrl: route ? router.resolve(route) : null
           }
@@ -1222,18 +1182,15 @@ export default {
       sidebarEl,
       toggleSidebar,
       granularity,
-      groupBy,
       granularityOptions,
-      groupByOptions,
       fragmentCountLabel,
       selectGranularity,
-      toggleGroupBy,
     }
   }
 }
 </script>
 <style scoped>
-/* Level of the results (granularity) and grouping */
+/* Level of the results (granularity) */
 .results-level-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1251,8 +1208,7 @@ export default {
   gap: 10px;
 }
 
-.results-level-field label,
-.results-group-by legend {
+.results-level-field label {
   font-weight: 500;
   color: #4a4a4a;
 }
@@ -1267,36 +1223,6 @@ export default {
   font-family: inherit;
   font-size: 15px;
   cursor: pointer;
-}
-
-.results-group-by {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 18px;
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-.results-group-by legend {
-  float: left;
-  margin-right: 8px;
-}
-
-.results-group-by label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  cursor: pointer;
-}
-
-.results-group-by input {
-  width: 17px;
-  height: 17px;
-  margin: 0;
-  accent-color: var(--fill-color);
 }
 
 .results-level-bar + .document-list {

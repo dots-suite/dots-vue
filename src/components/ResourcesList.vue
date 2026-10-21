@@ -238,24 +238,12 @@
           </template>
         </template>
 
-        <!-- FRAGMENTS: one row per fragment, optional group headers -->
+        <!-- FRAGMENTS: one row per fragment -->
         <template v-else-if="isFragmentList">
           <template
-            v-for="(item, index) in paginated"
+            v-for="item in paginated"
             :key="item.identifier"
           >
-            <li
-              v-for="header in groupHeadersAt(index)"
-              :key="header.key"
-              class="group-header"
-              :class="`group-header--${header.level}`"
-            >
-              <div class="li container group-header-row">
-                <div class="cell">
-                  {{ header.label }}
-                </div>
-              </div>
-            </li>
             <!-- Full-text: highlights behind a chevron, as for resources -->
             <template v-if="isHighlights">
               <li>
@@ -433,8 +421,6 @@ name: 'ResourcesList',
     isWithHighlights: Boolean,
     // Fragment results (granularity): one row per fragment, linked to its passage
     isFragmentList: Boolean,
-    // Levels the fragment rows are grouped by: 'subCollection', 'resource'
-    groupBy: { type: Array, default: () => [] },
     // Name of the listed fragments in the results count, e.g. "actes"
     countLabel: { type: String, default: null },
     // true / false after search is executed ; null when irrelevant (outside search mode or search missing scope collection)
@@ -689,29 +675,6 @@ name: 'ResourcesList',
       return parts.filter(Boolean)
     }
 
-
-    // GROUPS: a header where the sub-collection or the resource changes,
-    // the rows coming sorted by their resource path
-    const groupHeadersAt = (index) => {
-      const levels = ['subCollection', 'resource'].filter(level => props.groupBy.includes(level))
-      const rows = paginated.value
-      const item = rows[index]
-      const previous = index > 0 ? rows[index - 1] : null
-      const headers = []
-      let changed = !previous
-
-      levels.forEach(level => {
-        const group = item.groupKeys?.[level]
-        changed = changed || group?.id !== previous?.groupKeys?.[level]?.id
-
-        if (changed && group) {
-          headers.push({ key: `${level}:${group.id}:${index}`, level, label: group.label })
-        }
-      })
-
-      return headers
-    }
-
     const goToPassage = async (item, event) => {
       if (
         !item.passageUrl ||
@@ -784,7 +747,6 @@ name: 'ResourcesList',
       buildBreadcrumbParts,
       getTableHref,
       goToPageTable,
-      groupHeadersAt,
       goToPassage,
       tableVariant,
       gridTemplateColumns
@@ -1116,31 +1078,6 @@ name: 'ResourcesList',
 }
 .list-mode .row.is-selected .cell.chevron-down a::after {
   transform: translate(-50%, -50%) rotate(-45deg);
-}
-
-/* FRAGMENTS */
-.list-mode .group-header-row {
-  display: block !important;
-  padding: 18px 15px 8px;
-  cursor: default;
-}
-
-.list-mode .group-header--subCollection .group-header-row {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--fill-color);
-  border-bottom: 2px solid var(--fill-color);
-}
-
-.list-mode .group-header--resource .group-header-row {
-  font-size: 16px;
-  font-weight: 600;
-  color: #4a4a4a;
-  border-bottom: 1px solid #dcdcdc;
-}
-
-.list-mode .group-header--subCollection + .group-header--resource .group-header-row {
-  padding-top: 10px;
 }
 
 /* FILTER */

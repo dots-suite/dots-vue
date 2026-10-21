@@ -106,7 +106,6 @@ export default function useSimpleSearch() {
   const setExcludedTemporalFacets = v => store.commit('search/setSearchExcludedTemporalFacets', v)
   const setExcludedFacets = v => store.commit('search/setSearchExcludedFacets', v)
   const setGranularity = v => store.commit('search/setSearchGranularity', v)
-  const setGroupBy = v => store.commit('search/setSearchGroupBy', v)
   const setFacet = ({ facetType, value }) =>
     store.commit('search/setFacet', {
       facetType,
@@ -179,11 +178,7 @@ export default function useSimpleSearch() {
       ? `&scope=fragment&citeType=${encodeURIComponent(s.granularity)}`
       : ''
 
-    // Grouped fragments are sorted on their resource path first, so a group never splits across pages
-    const sorts = [s.granularity && s.groupBy?.length ? 'path' : '', s.sorts]
-      .filter(Boolean)
-      .join(',')
-    const sortArg = sorts ? `&sort=${sorts}` : ''
+    const sortArg = s.sorts ? `&sort=${s.sorts}` : ''
     const highlightArg = s.noHighlight ? '&no-highlight' : ''
     const termValue = !isResourceSearch.value ? (s.term || '***') : ''
 
@@ -288,7 +283,6 @@ export default function useSimpleSearch() {
       JSON.stringify(searchState.value?.excludedTemporalFacets),
       JSON.stringify(searchState.value?.excludedFacets),
       searchState.value?.granularity,
-      JSON.stringify(searchState.value?.groupBy),
     ],
     updateQuery,
     { immediate: true, deep: true }  // garde le comportement initial de watchEffect
@@ -389,7 +383,6 @@ export default function useSimpleSearch() {
     isResultTableMode: computed(() => searchState.value?.isResultTableMode ?? true),
 
     granularity: computed(() => searchState.value?.granularity ?? null),
-    groupBy: computed(() => searchState.value?.groupBy ?? []),
     granularities: computed(() => searchState.value?.granularities ?? []),
 
     setNoHighlight,
@@ -411,7 +404,6 @@ export default function useSimpleSearch() {
     setExcludedTemporalFacets,
     setExcludedFacets,
     setGranularity,
-    setGroupBy,
 
     saveSnapshot,
     restoreSnapshot,
