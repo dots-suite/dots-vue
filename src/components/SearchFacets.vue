@@ -616,15 +616,9 @@ function hasFacetCandidates(facet) {
     const selectedKeys = selectedFacetKeys(facet.id)
 
     return (facet.values ?? []).some(v =>
-        (isCollectionsFacet(facet.id) || (v.count ?? 0) > 0) &&
+        (v.count ?? 0) > 0 &&
         !selectedKeys.includes(v.facet_key ?? v.value ?? v.id)
     )
-}
-
-// The collections facet (e.g. annual volumes) keeps offering every other
-// collection after a selection, whatever its current count, even 0.
-function isCollectionsFacet(facetId) {
-    return facetId === 'collections'
 }
 
 // A facet running out of candidates hides its input, which loses focus:
@@ -638,15 +632,7 @@ watch(
 
 // Header count is exactly what the dropdown renders: same exclusions, same
 // search term. Any other source would drift from it.
-// Exception: once collections are selected, the collections header counts
-// them, since its dropdown lists every other collection anyway.
 function availableFacetCount(facet) {
-    const selectedCount = selectedFacetKeys(facet.id).length
-
-    if (isCollectionsFacet(facet.id) && selectedCount) {
-        return selectedCount
-    }
-
     return filteredFacetValues(facet.id, facet.values ?? []).length
 }
 
@@ -666,11 +652,7 @@ function filteredFacetValues(facetId, values) {
       const hasCount = (v.count ?? 0) > 0
       return (
           !selectedKeys.includes(key) &&
-          (
-              hasCount ||
-              isCollectionsFacet(facetId) ||
-              (term && matchesTerm)
-          )
+          (hasCount || (term && matchesTerm))
       )
     })
 
@@ -699,9 +681,7 @@ function toggleFacet(facetId, item) {
         facetKey:
             item.facet_key ??
             item.value ??
-            item.id,
-        isCollection: facetId === 'collections'
-
+            item.id
     })
 
 }

@@ -28,9 +28,6 @@ function createEmptySearchState() {
 
     // FACETS
     openedFacets: [],
-    initialFacets: {
-      available: {}
-    },
     facets: {
       available: {},
       selected: {}
@@ -313,9 +310,8 @@ export default {
 
       s.excludedFacets = next
 
-      // The set of facets returned by the API changes: the memorised
-      // initial values describe the previous set, so invalidate them.
-      s.initialFacets = { available: {} }
+      // The set of facets returned by the API changes: drop the cached
+      // values describing the previous set.
       s.facets.available = {}
 
       // A facet that is now excluded must no longer filter the search:
@@ -342,7 +338,6 @@ export default {
           .filter(([facetType]) => facetType === 'collections' || facetType === 'resources')
       )
       s.facets.available = {}
-      s.initialFacets = { available: {} }
       s.ranges = {}
       s.temporal = []
       s.initialTemporal = []
@@ -406,16 +401,6 @@ export default {
       }
 
       const available = payload.facets || {}
-
-      // On mémorise les facettes initiales une seule fois
-      if (
-        Object.keys(s.initialFacets.available).length === 0 &&
-        Object.keys(available).length > 0
-      ) {
-        s.initialFacets.available = JSON.parse(
-          JSON.stringify(available)
-        )
-      }
 
       // Initialiser les sélections des nouvelles facettes
       Object.keys(available).forEach(facetType => {

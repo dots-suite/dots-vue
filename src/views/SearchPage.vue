@@ -457,25 +457,15 @@ export default {
     const visibleFacets = computed(() => {
       const result = []
       const available = search.facets.value?.available || {}
-      const initialAvailable = search.initialFacets.value?.available || {}
       const configFacets = facetsConfig.value
       const collectionsConfig = configFacets.find(f => f.key === 'collections')
 
       if (available.collections  && collectionsConfig?.enabled !== false) {
 
-        const currentCollections = Object.fromEntries(
-          available.collections.map(f => [
-            f.facet_key,
-            f.count
-          ])
-        )
-
-        const collections = (
-          initialAvailable.collections || available.collections
-        ).map(f => ({
-          ...f,
-          count: currentCollections[f.facet_key] ?? 0
-        })).filter(f => f.id !== collectionId.value)
+        // The backend already self-excludes this facet and only returns the
+        // collections carried by the current perimeter: list them as-is.
+        const collections = available.collections
+          .filter(f => f.id !== collectionId.value)
 
         result.push({
           key: 'collections',

@@ -368,7 +368,6 @@ export default function useSimpleSearch() {
     result: computed(() => searchState.value?.result || []),
     openedFacets: computed(() => searchState.value?.openedFacets || []),
     facets: computed(() => searchState.value?.facets || {}),
-    initialFacets: computed(() => searchState.value?.initialFacets || { available: {} }),
     temporal: computed(() => searchState.value?.temporal ?? []),
     excludedTemporalFacets: computed(() => searchState.value?.excludedTemporalFacets ?? []),
     excludedFacets: computed(() => searchState.value?.excludedFacets ?? []),
