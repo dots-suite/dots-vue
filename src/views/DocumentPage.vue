@@ -489,7 +489,7 @@ import _ from 'lodash'
 import { useStore } from 'vuex'
 import useMirador from '@/composables/use-mirador'
 import { getMetadataFromApi, getParentFromApi, getTOCFromApi, getAncestors } from '@/api/document'
-import { getCanvases, getManifestUrls } from '@/composables/iiif-manifest'
+import { fetchManifest, getCanvases, getManifestUrls } from '@/composables/iiif-manifest'
 
 import {
   computed,
@@ -1559,19 +1559,6 @@ export default {
       )
     })
 
-    const manifestRequests = new Map()
-
-    const fetchManifest = (url) => {
-      if (!manifestRequests.has(url)) {
-        manifestRequests.set(url, fetch(url).then((response) => {
-          if (!response.ok) throw new Error(`HTTP ${response.status} on ${url}`)
-          return response.json()
-        }))
-      }
-
-      return manifestRequests.get(url)
-    }
-
     // Those that fail are left out: the others remain usable
     const loadManifests = async (declared) => {
       const urls = getManifestUrls(declared)
@@ -1604,6 +1591,7 @@ export default {
       manifestIsAvailable.value = true
 
       if (miradorInstance.miradorStore) {
+        miradorInstance.receiveManifests(loaded.map((item) => item.data))
         miradorInstance.loadManifest(data, getCanvases(data)[0]?.id)
       }
     }

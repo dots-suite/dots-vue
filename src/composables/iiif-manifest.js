@@ -3,6 +3,39 @@
 
 export const getManifestId = manifest => manifest?.id ?? manifest?.['@id']
 
+const RETRY_DELAY = 3000
+const FAILURE_MEMORY = 30000
+
+// Gallica limits its requests per client. Its 429 has no CORS header: the browser
+// reports a CORS error and hides the status, so a network error may be temporary too.
+async function requestManifest (url, retries = 1) {
+  const response = await fetch(url).catch(() => null)
+  if (response?.ok) return response.json()
+
+  const isLasting = response && response.status < 500 && response.status !== 429
+  if (isLasting || !retries) {
+    throw new Error(`HTTP ${response?.status ?? 'network or CORS error'} on ${url}`)
+  }
+
+  await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+  return requestManifest(url, retries - 1)
+}
+
+const manifestRequests = new Map()
+
+// Requested once per page load, whatever the document. A failure is kept for a while,
+// so that the several loads of one document do not add requests to a limited server.
+export function fetchManifest (url) {
+  if (!manifestRequests.has(url)) {
+    manifestRequests.set(url, requestManifest(url))
+    manifestRequests.get(url).catch(() => {
+      setTimeout(() => manifestRequests.delete(url), FAILURE_MEMORY)
+    })
+  }
+
+  return manifestRequests.get(url)
+}
+
 // [{ id, imageId }] for each canvas, whatever the version
 export function getCanvases (manifest) {
   if (Array.isArray(manifest?.items)) {
