@@ -103,7 +103,7 @@ import AppFooter from '@/components/AppFooter.vue'
 import DirectionArrows from '@/assets/images/DirectionArrows.vue'
 import fetchMetadata from '@/composables/get-metadata'
 import { getMetadataFromApi, getParentFromApi, getProjectFromApi, getAncestors } from '@/api/document'
-import { useCustomCss } from '@/composables/utils.js'
+import { confineCustomCss, useCustomCss } from '@/composables/utils.js'
 import { mergeSettings } from '@/composables/mergeSettings'
 
 export default {
@@ -335,7 +335,7 @@ export default {
             el.id = 'customCss'
           }
           // Update the CSS content of the customCss style tag
-          el.textContent = customCss.value
+          el.textContent = confineCustomCss(customCss.value)
           // IMPORTANT : appendChild will move the customCss style tag to the end of <head> so it takes precedence
           document.head.appendChild(el)
         }
