@@ -8,6 +8,8 @@
 // ones whatever their specificity. Measured -- @scope alone loses to neither
 // specificity nor order, because scoping proximity outranks order of
 // appearance, so a scoped rule would beat the collection's bare selector.
+// The scope stops at .mirador-view: the viewer is not document content, and
+// its own elements (MuiAppBar's <header>) would otherwise match bare selectors.
 
 const STYLE_ID = 'documentBaseCss'
 
@@ -185,7 +187,7 @@ export async function loadDocumentBaseCss (renderer) {
     const css = [
       fontFaces,
       '@layer documentBase {',
-      '@scope (.document-views) {',
+      '@scope (.document-views) to (.mirador-view) {',
       scoped,
       '}',
       '}'
