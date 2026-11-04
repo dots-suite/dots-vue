@@ -79,8 +79,9 @@ function rootToScope (rules) {
 }
 
 // A collection custom CSS styles the text only: confined here, it reaches neither
-// .dots-ui, the application interface, nor what it contains. Variables set on the
-// root are inherited below the limit: they are how a collection themes the interface.
+// .dots-ui, the application interface, nor what it contains, nor the Mirador viewer.
+// Variables set on the root are inherited below the limit: they are how a collection
+// themes the interface.
 // @keyframes and other at-rules are invalid inside @scope, so they are kept out of it.
 // @import is not supported: CSSStyleSheet ignores it.
 export function confineCustomCss (css) {
@@ -95,7 +96,7 @@ export function confineCustomCss (css) {
 
   return [
     ...rules.filter(rule => !isScopable(rule)).map(rule => rule.cssText),
-    '@scope (:root) to (.dots-ui) {',
+    '@scope (:root) to (.dots-ui, .mirador-view) {',
     ...rules.filter(isScopable).map(rule => rule.cssText),
     '}'
   ].join('\n')

@@ -461,7 +461,7 @@
           />
         </div>
         <div
-          v-if="isLoading"
+          v-if="isLoading && manifestIsAvailable"
           id="mirador-view"
           class="mirador-view"
           :style="miradorViewCssStyle"
