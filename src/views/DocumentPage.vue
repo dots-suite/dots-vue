@@ -2304,6 +2304,11 @@ export default {
 .text-and-images-mode .mirador-view {
   flex: 50% 0 0;
 }
+/* Keeps its half: wide content (a table) scrolls here instead of pushing the viewer out */
+.text-and-images-mode .document-views .text-view {
+  min-width: 0;
+  overflow-x: auto;
+}
 
 #article > span.error > b {
   display: none;
