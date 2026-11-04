@@ -62,23 +62,23 @@ export default {
     width: 30px;
     height: 30px;
   }
-  /* 30x30, like the app's other buttons on mobile (--button-size):
-     three 3px lines, from 15px above the centre to 15px below */
+  /* 30x30, like the app's other buttons on mobile (--button-size), with the same
+     inner margin: three 3px lines drawn in 25x25, centred */
   .navbar-burger span {
-    width: 30px;
+    width: 25px;
     background-color: #FFFFFF;
     height: 3px;
-    right: 0;
+    right: 2.5px;
     left: unset;
   }
   .navbar-burger span:nth-child(1) {
-    top: calc(50% - 15px);
+    top: calc(50% - 12.5px);
   }
   .navbar-burger span:nth-child(2) {
     top: calc(50% - 1.5px);
   }
   .navbar-burger span:nth-child(3) {
-    top: calc(50% + 12px);
+    top: calc(50% + 9.5px);
   }
 
   .navbar-burger span {

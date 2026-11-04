@@ -677,6 +677,20 @@ ul.submenu a:hover {
   }
 }
 @media screen and (max-width: 640px) {
+  /* Logo the size of the 30x30 buttons: room for a long collection title */
+  .logo-header {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    margin-left: 0;
+    margin-right: 6px;
+    object-fit: contain;
+
+    & > img {
+      height: 30px;
+    }
+  }
+
   .level {
     display: flex;
     height: 100%;
@@ -693,6 +707,7 @@ ul.submenu a:hover {
     }
 
     & > a.level-item-external {
+      font-size: 18px;
       line-height: 1.2;
 
       &:not(:first-child) {
@@ -700,8 +715,9 @@ ul.submenu a:hover {
       }
 
       &:nth-child(2) {
-        margin-left: 15px;
-        padding-left: 15px;
+        margin-left: 10px;
+        padding-left: 10px;
+        font-size: 18px;
       }
 
       /*&:first-child {
@@ -729,7 +745,7 @@ ul.submenu a:hover {
   .level-left {
     width: 100%;
     overflow: hidden;
-    gap: 10px;
+    gap: 6px;
   }
 
   .level-left .level-item {
