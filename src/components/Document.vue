@@ -266,6 +266,15 @@ export default {
         }
       }
 
+      // A page break alone on its table row announces the next row: moved there, its icon is centred on that row
+      if (mediaType.value === 'html') {
+        for (const pageBreak of tmpDom.querySelectorAll('tr page-break')) {
+          const row = pageBreak.closest('tr')
+          const nextCell = row.nextElementSibling?.querySelector('td')
+          if (nextCell && !row.textContent.trim()) nextCell.prepend(pageBreak)
+        }
+      }
+
       // Treat api tei as tei and transform it as xml:
       if (mediaType.value === 'tei' && currentLevelIndicator.value === 'toEdit') {
         // Parse the TEI XML string as XML, not HTML

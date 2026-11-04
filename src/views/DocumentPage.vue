@@ -2199,6 +2199,27 @@ export default {
   display: none;
 }
 
+/* Room for the facsimile icons in the left margin of the text on small screens,
+   not a collection setting: an !important declaration in a layer beats any
+   unlayered one, even !important, so a collection custom CSS cannot change it. */
+@layer documentLayout {
+  .document-views .text-view #article:has(.pb-component) {
+    position: relative !important;
+  }
+
+  @media screen and (max-width: 768px) {
+    .document-views .text-view #article:not(.bottom-toc) {
+      margin-left: 22px !important;
+    }
+  }
+
+  @media screen and (max-width: 640px) {
+    .document-views .text-view #article:not(.bottom-toc) {
+      margin-left: 10px !important;
+    }
+  }
+}
+
 /* Override the "html" selector CSS rules of the document-renderer */
 .document-views {
   width: 100%;

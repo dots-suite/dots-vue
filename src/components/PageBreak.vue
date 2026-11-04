@@ -1,5 +1,5 @@
 <template>
-  <aside class="media pb-component">
+  <aside class="dots-ui media pb-component">
     <article class="pb">
       <div class="pb-label">
         <a :href="imageInfo" />
@@ -110,5 +110,82 @@ export default {
   text-align: center;
   margin-top: 16px;
   margin-bottom: 16px;
+}
+
+/* In a document, the icon sits in the left margin of the text: out of the flow,
+   so it neither moves with the words of its line nor makes that line taller */
+#article .pb-component {
+  position: absolute;
+  left: calc(-16px - .5rem);
+  display: inline-block;
+  float: none;
+  margin: 0;
+  line-height: 1;
+  text-indent: 0;
+  font-style: normal;
+}
+#article .pb-component .pb {
+  position: static;
+  display: flex;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+#article li.witness > .pb-component .pb {
+  display: inline-block;
+}
+#article .pb-component .pb-label {
+  display: none;
+}
+#article .pb-component .pb-thumbnail-parent {
+  position: relative;
+  display: inline-block;
+  width: 16px;
+  height: 20px;
+  margin: 0;
+  background-position: center;
+  background-size: contain;
+  filter: brightness(.45);
+}
+#article .pb-component:hover .pb-thumbnail-parent {
+  filter: none;
+}
+#article .pb-component .pb-thumbnail-parent img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  cursor: pointer;
+}
+
+/* In a table, it is vertically centred on its row */
+#article tr:has(.pb-component) {
+  position: relative;
+}
+#article td .pb-component {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* In a witness, it stays at the end of its line */
+#article li.witness > .pb-component {
+  position: static;
+  margin-left: .4em;
+  vertical-align: middle;
+  line-height: 0;
+}
+
+/* In an index entry, it sits in front of the bullet */
+#article li[id]:has(> .pb-component) {
+  position: relative;
+}
+#article li[id]:not(.witness) > .pb-component {
+  top: 0;
+  right: 100%;
+  left: auto;
+  margin-right: 1.6em;
 }
 </style>
