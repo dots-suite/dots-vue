@@ -66,6 +66,41 @@ export function getSimpleObject(obj, parentId, projId) {
   return simpleObject
 }
 
+// html and :root never match inside @scope, whose selectors stand below its root.
+// Rewritten to :scope, the collection variables still land on the root itself.
+function rootToScope (rules) {
+  for (const rule of rules) {
+    if (rule instanceof CSSStyleRule) {
+      rule.selectorText = rule.selectorText.replace(/(^|,\s*)(?:html|:root)(?=$|[\s,.>#:[+~])/g, '$1:scope')
+    }
+
+    if (rule.cssRules) rootToScope(rule.cssRules)
+  }
+}
+
+// A collection custom CSS styles the text only: confined here, it reaches neither
+// .dots-ui, the application interface, nor what it contains. Variables set on the
+// root are inherited below the limit: they are how a collection themes the interface.
+// @keyframes and other at-rules are invalid inside @scope, so they are kept out of it.
+// @import is not supported: CSSStyleSheet ignores it.
+export function confineCustomCss (css) {
+  if (!css) return ''
+
+  const sheet = new CSSStyleSheet()
+  sheet.replaceSync(css)
+  rootToScope(sheet.cssRules)
+
+  const rules = [...sheet.cssRules]
+  const isScopable = rule => rule instanceof CSSStyleRule || rule instanceof CSSGroupingRule
+
+  return [
+    ...rules.filter(rule => !isScopable(rule)).map(rule => rule.cssText),
+    '@scope (:root) to (.dots-ui) {',
+    ...rules.filter(isScopable).map(rule => rule.cssText),
+    '}'
+  ].join('\n')
+}
+
 // Manage customCss
 export function createCustomCssManager(initialCss = '') {
   // create / apply style
@@ -76,7 +111,7 @@ export function createCustomCssManager(initialCss = '') {
     // Initial append
     document.head.appendChild(el);
   }
-  el.textContent = initialCss;
+  el.textContent = confineCustomCss(initialCss);
 
   // Observer : if customCss style tag isn't the last child, replace (e.g. move) it
   const observer = new MutationObserver(() => {
@@ -90,7 +125,7 @@ export function createCustomCssManager(initialCss = '') {
 
   return {
     update(css) {
-      el.textContent = css;
+      el.textContent = confineCustomCss(css);
       // if customCss style tag isn't the last child, replace (e.g. move) it
       if (document.head.lastElementChild !== el) {
         document.head.appendChild(el)

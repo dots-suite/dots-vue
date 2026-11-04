@@ -425,7 +425,7 @@
             :media-type-endpoint="collConfig.mediaTypeEndpoint"
             :renderer="collConfig.renderer"
             :project-identifier="docProjectId"
-            :iiif-manifest="manifest"
+            :iiif-manifests="manifests"
             :level="currentLevel"
             :editorial-level-indicator="currentLevelIndicator"
             :editoriallevel="editorialLevel"
@@ -433,6 +433,7 @@
             :bottomtoc="bottomTOC"
             :maxcitedepth="TOC_DEPTH"
             @has-notes="hasNotes = $event"
+            @first-manifest="textManifestUrl = $event"
           />
         </div>
         <div
@@ -448,7 +449,7 @@
             :media-type-endpoint="collConfig.mediaTypeEndpoint"
             :renderer="collConfig.renderer"
             :project-identifier="docProjectId"
-            :iiif-manifest="manifest"
+            :iiif-manifests="manifests"
             :level="currentLevel"
             :editorial-level-indicator="currentLevelIndicator"
             :editoriallevel="editorialLevel"
@@ -456,6 +457,7 @@
             :bottomtoc="bottomTOC"
             :maxcitedepth="TOC_DEPTH"
             @has-notes="hasNotes = $event"
+            @first-manifest="textManifestUrl = $event"
           />
         </div>
         <div
@@ -487,6 +489,7 @@ import _ from 'lodash'
 import { useStore } from 'vuex'
 import useMirador from '@/composables/use-mirador'
 import { getMetadataFromApi, getParentFromApi, getTOCFromApi, getAncestors } from '@/api/document'
+import { getCanvases, getManifestUrls } from '@/composables/iiif-manifest'
 
 import {
   computed,
@@ -495,8 +498,7 @@ import {
   watch,
   provide,
   ref,
-  inject, nextTick
-} from 'vue'
+  inject, nextTick, shallowRef } from 'vue'
 
 import { useRoute } from 'vue-router'
 import { router } from '@/router'
@@ -567,8 +569,12 @@ export default {
     const appConfig = computed(() => props.applicationConfig)
     const collConfig = computed(() => props.collectionConfig)
     const manifestIsAvailable = ref(false)
-    const manifest = ref(null)
+    const manifest = shallowRef(null)
+    // Every manifest of the displayed item, [{ url, data }]; manifest is the one opened in Mirador
+    const manifests = shallowRef([])
+    const textManifestUrl = ref(null)
     const resourceManifest = ref(null)
+    const resourceManifests = shallowRef([])
     const miradorContainer = ref(null)
     const activeBreadcrumb = ref(null)
     const activeObject = ref(null)       // collection / resource
@@ -1553,41 +1559,60 @@ export default {
       )
     })
 
-    const getIiifManifestUrl = () => {
-      const resourceIIIFManifest = metadata.value?.extensions?.['dots:resourceIIIFManifest']
-      if (!resourceIIIFManifest) {
-        return null
+    const manifestRequests = new Map()
+
+    const fetchManifest = (url) => {
+      if (!manifestRequests.has(url)) {
+        manifestRequests.set(url, fetch(url).then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status} on ${url}`)
+          return response.json()
+        }))
       }
 
-      // cas tableau
-      if (Array.isArray(resourceIIIFManifest)) {
-        const iiifItem = resourceIIIFManifest.find(s => s?.source?.name === 'iiif')
-        if (iiifItem) {
-          return iiifItem.url
-        }
-      } else {
-        return resourceIIIFManifest
-      }
+      return manifestRequests.get(url)
+    }
 
-      // cas objet simple
-      // if (resourceIIIFManifest?.source?.name === 'iiif') {
-      //   return resourceIIIFManifest.url
-      // }
+    // Those that fail are left out: the others remain usable
+    const loadManifests = async (declared) => {
+      const urls = getManifestUrls(declared)
+      const results = await Promise.allSettled(urls.map(fetchManifest))
 
-      return null
+      return results.flatMap((result, index) => {
+        if (result.status === 'fulfilled') return [{ url: urls[index], data: result.value }]
+
+        console.warn('mirador manifest not loaded', urls[index], result.reason)
+        return []
+      })
     }
 
     const loadResourceManifest = async () => {
-      const response = await fetch(getIiifManifestUrl(), {
-        method: 'GET'
-      })
+      resourceManifests.value = await loadManifests(metadata.value?.extensions?.['dots:resourceIIIFManifest'])
 
-      if (!response.ok) {
+      if (!resourceManifests.value.length) {
         throw new Error('Unable to load IIIF manifest')
       }
 
-      resourceManifest.value = await response.json()
+      resourceManifest.value = resourceManifests.value[0].data
     }
+
+    // Opens the manifest of the first image of the text, as soon as it is known
+    const showManifests = (loaded) => {
+      const { data } = loaded.find(({ url }) => url === textManifestUrl.value) ?? loaded[0]
+
+      manifests.value = loaded
+      manifest.value = data
+      manifestIsAvailable.value = true
+
+      if (miradorInstance.miradorStore) {
+        miradorInstance.loadManifest(data, getCanvases(data)[0]?.id)
+      }
+    }
+
+    watch(textManifestUrl, (url) => {
+      const entry = manifests.value.find((item) => item.url === url)
+
+      if (entry && entry.data !== manifest.value) showManifests(manifests.value)
+    })
 
     let _currentLoadId = 0
     const updateDisplayedManifest = async () => {
@@ -1596,6 +1621,7 @@ export default {
       try {
         if (!resourceManifest.value) {
           manifest.value = null
+          manifests.value = []
           manifestIsAvailable.value = false
           return
         }
@@ -1613,43 +1639,20 @@ export default {
             )
 
 
-            const docManifestURL =
-              currentRes?.extensions?.['dots:resourceIIIFManifest']
-
-            if (!docManifestURL) {
-              manifest.value = null
-              manifestIsAvailable.value = false
-              return
-            }
-
-            const response = await fetch(docManifestURL)
+            const loaded = await loadManifests(currentRes?.extensions?.['dots:resourceIIIFManifest'])
 
             if (loadId !== _currentLoadId) {
               return
             }
 
-            if (!response.ok) {
+            if (!loaded.length) {
               manifest.value = null
+              manifests.value = []
               manifestIsAvailable.value = false
               return
             }
 
-            const manifestJson = await response.json()
-
-            if (loadId !== _currentLoadId) {
-              return
-            }
-
-            manifest.value = manifestJson
-            manifestIsAvailable.value = true
-
-
-            if (miradorInstance.miradorStore) {
-              miradorInstance.loadManifest(
-                manifest.value,
-                manifest.value?.items?.[0]?.id
-              )
-            }
+            showManifests(loaded)
 
             return
           }
@@ -1667,13 +1670,7 @@ export default {
         }
 
         // CAS 2 : ressource = manifest
-        manifest.value = resourceManifest.value
-        manifestIsAvailable.value = true
-
-
-        if (miradorInstance.miradorStore) {
-          miradorInstance.loadManifest(manifest.value, manifest.value?.items?.[0]?.id)
-        }
+        showManifests(resourceManifests.value)
 
       } catch (error) {
         if (loadId !== _currentLoadId) {
@@ -1683,6 +1680,7 @@ export default {
         console.error('mirador updateDisplayedManifest error:', error)
 
         manifest.value = null
+        manifests.value = []
         manifestIsAvailable.value = false
 
       }
@@ -1710,7 +1708,9 @@ export default {
         if (!newVal) {
           layout.imageIsAvailable.value = false
           manifest.value = null
+          manifests.value = []
           resourceManifest.value = null
+          resourceManifests.value = []
           manifestIsAvailable.value = false
           return
         }
@@ -1724,7 +1724,9 @@ export default {
           console.error('mirador resourceIIIFManifest error', error)
 
           manifest.value = null
+          manifests.value = []
           resourceManifest.value = null
+          resourceManifests.value = []
           manifestIsAvailable.value = false
         }
       }, { immediate: true }
@@ -1969,6 +1971,8 @@ export default {
       metadata,
       manifestIsAvailable,
       manifest,
+      manifests,
+      textManifestUrl,
       resourceId,
       collection,
       isDocProjectIdInc,
@@ -2195,6 +2199,27 @@ export default {
   display: none;
 }
 
+/* Room for the facsimile icons in the left margin of the text on small screens,
+   not a collection setting: an !important declaration in a layer beats any
+   unlayered one, even !important, so a collection custom CSS cannot change it. */
+@layer documentLayout {
+  .document-views .text-view #article:has(.pb-component) {
+    position: relative !important;
+  }
+
+  @media screen and (max-width: 768px) {
+    .document-views .text-view #article:not(.bottom-toc) {
+      margin-left: 22px !important;
+    }
+  }
+
+  @media screen and (max-width: 640px) {
+    .document-views .text-view #article:not(.bottom-toc) {
+      margin-left: 10px !important;
+    }
+  }
+}
+
 /* Override the "html" selector CSS rules of the document-renderer */
 .document-views {
   width: 100%;
@@ -2278,6 +2303,11 @@ export default {
 .text-and-images-mode .text-view,
 .text-and-images-mode .mirador-view {
   flex: 50% 0 0;
+}
+/* Keeps its half: wide content (a table) scrolls here instead of pushing the viewer out */
+.text-and-images-mode .document-views .text-view {
+  min-width: 0;
+  overflow-x: auto;
 }
 
 #article > span.error > b {
@@ -3021,7 +3051,7 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
 
   .text-mode .controls {
     .text-btn {
-      pointer-events: none;
+      pointer-events: auto;
     }
     .images-btn {
       pointer-events: auto;
@@ -3031,9 +3061,6 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
   .images-mode .controls {
     .text-btn {
       pointer-events: auto;
-    }
-    .images-btn {
-      pointer-events: none;
     }
   }
 
