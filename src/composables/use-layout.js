@@ -41,7 +41,7 @@ export default function useLayout () {
 
   const changeViewMode = function (v) {
     //viewMode.value = v
-    const isMobile = window.innerWidth < 768;
+    const isMobile = window.innerWidth <= 768;
     if (v === 'init') {
       viewMode.value = 'text-mode'
     } else if (viewMode.value === 'init' && v === 'text-mode') {

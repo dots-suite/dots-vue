@@ -3051,7 +3051,7 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
 
   .text-mode .controls {
     .text-btn {
-      pointer-events: none;
+      pointer-events: auto;
     }
     .images-btn {
       pointer-events: auto;
@@ -3061,9 +3061,6 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
   .images-mode .controls {
     .text-btn {
       pointer-events: auto;
-    }
-    .images-btn {
-      pointer-events: none;
     }
   }
 
