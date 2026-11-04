@@ -6,6 +6,7 @@ import Mirador from 'mirador'
 import MiradorApp from 'mirador/dist/es/src/components/App'
 import createPluggableStore from 'mirador/dist/es/src/state/createPluggableStore'
 import { miradorImageToolsPlugin } from 'mirador-image-tools'
+import { getManifestId } from '@/composables/iiif-manifest'
 
 export default function useMirador(container) {
   const _windowId = 'document'
@@ -47,6 +48,7 @@ export default function useMirador(container) {
     loadManifest,
     loadCollectionManifest,
     setCanvasId,
+    showCanvas,
     resetView,
     dispatchAction,
     reactRoot: null,
@@ -206,7 +208,9 @@ export default function useMirador(container) {
       return
     }
 
-    if (!manifestObject?.id) {
+    const manifestId = getManifestId(manifestObject)
+
+    if (!manifestId) {
       console.warn('use-mirador invalid manifest id', manifestObject)
       return
     }
@@ -223,7 +227,7 @@ export default function useMirador(container) {
         imageToolsEnabled: true,
         imageToolsOpen: false,
         id: _windowId,
-        manifestId: manifestObject.id,
+        manifestId,
         canvasId: canvasId
       })
     )
@@ -241,6 +245,17 @@ export default function useMirador(container) {
   function setCanvasId(canvasId) {
     dispatchAction(Mirador.actions.setCanvas(_windowId, canvasId))
     resetView()
+  }
+
+  // Une ressource peut avoir plusieurs manifestes : ouvre celui du canvas si besoin
+  function showCanvas(manifestId, canvasId) {
+    const openedManifestId = instance.miradorStore?.getState().windows[_windowId]?.manifestId
+
+    if (openedManifestId === manifestId) {
+      setCanvasId(canvasId)
+    } else {
+      loadManifest({ id: manifestId }, canvasId)
+    }
   }
 
   onUnmounted(() => {

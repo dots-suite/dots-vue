@@ -55,8 +55,9 @@
 </template>
 
 <script>
-import {computed, defineAsyncComponent, onBeforeUnmount, ref, watch} from 'vue'
+import {computed, defineAsyncComponent, onBeforeUnmount, ref, shallowRef, watch} from 'vue'
 import { loadDocumentBaseCss, removeDocumentBaseCss } from '@/composables/useDocumentBaseCss'
+import { findFacsimile } from '@/composables/iiif-manifest'
 import { getCoverDataFromApi, getDocumentFromApi } from '@/api/document'
 import { useRoute } from 'vue-router'
 import TOC from '@/components/TOC.vue'
@@ -68,8 +69,8 @@ export default {
     TOC
   },
 
-  props: ['id', 'level', 'editoriallevel', 'bottomtoc', 'maxcitedepth', 'documenttype', 'editorialLevelIndicator', 'isDocProjectIdIncluded', 'mediaTypeEndpoint', 'renderer', 'projectIdentifier', 'iiifManifest'],
-  emits: ['has-notes'],
+  props: ['id', 'level', 'editoriallevel', 'bottomtoc', 'maxcitedepth', 'documenttype', 'editorialLevelIndicator', 'isDocProjectIdIncluded', 'mediaTypeEndpoint', 'renderer', 'projectIdentifier', 'iiifManifests'],
+  emits: ['has-notes', 'first-manifest'],
 
   async setup (props, { emit }) {
     // Declare route to capture route hash (used in scrollTo()) to display selected Table Of Content items below the editorial level
@@ -91,7 +92,8 @@ export default {
     })
 
     onBeforeUnmount(removeDocumentBaseCss)
-    const manifest = ref(props.iiifManifest)
+    const manifests = shallowRef(props.iiifManifests ?? [])
+    const manifestsKey = () => manifests.value.map(({ url }) => url).join()
     // The parentId will the id used for the DoTS API, it is either the resourceId or the resourceId + '&ref=' + refId
     // TODO: rename to a more appropriate name : it is the id used for Dots API : dotsID ?
     const parentId = ref(props.id)
@@ -113,9 +115,8 @@ export default {
     // Declare the async component (displayed content)
     // let customDocument = loadDoc()
 
-    // Build the async component
-    const customDocument = defineAsyncComponent(async () => {
-      // fetch the initial template, depending on the selected level compared to the editorial level
+    // fetch the initial template, depending on the selected level compared to the editorial level
+    const fetchDocumentData = async () => {
       let data = ''
       if (currentLevelIndicator.value) {
         if (currentLevelIndicator.value === 'renderToc' && documentType.value === 'Resource') {
@@ -140,6 +141,24 @@ export default {
         return
       }
 
+      return data
+    }
+
+    // Fetched once: the template is rebuilt from it when the manifest comes after the text
+    let documentData = null
+    // What the last build used, to tell whether a new manifest changes anything
+    let isDocumentBuilt = false
+    let builtManifestsKey = ''
+    let hasFacsimiles = false
+    // Reading position to restore after such a rebuild, instead of going back to the anchor
+    let savedScrollY = null
+
+    // Build the async component
+    const buildCustomDocument = () => defineAsyncComponent(async () => {
+      documentData ??= fetchDocumentData()
+      const data = await documentData
+      if (data === undefined) return
+
       // Build a temporary dom just to ease the navigation inside the document
       // It belongs to an inert document, so that its images are not fetched: facsimile
       // thumbnails replaced below point to full-size IIIF images (TEI-Boilerplate)
@@ -153,7 +172,20 @@ export default {
 
       // Generate PageBreak components for each iiif canvas link encoded in the DoTS response
 
-      if (mediaType.value === 'html' && manifest.value && Array.isArray(renderer.value.facsimiles)) {
+      emit('first-manifest', tmpDom.querySelector('[data-manifest]')?.getAttribute('data-manifest') ?? null)
+
+      const pageBreakProps = ({ manifestId, canvasId, canvasNum, firstCanvasId }) =>
+        `manifest-id="${manifestId}" canvas-id="${canvasId}" canvas-num="${canvasNum}" first-canvas-id="${firstCanvasId}"`
+      const noFacsimile = { manifestId: '', canvasId: '', canvasNum: 1, firstCanvasId: '' }
+
+      const facsimileSelector = Array.isArray(renderer.value.facsimiles)
+        ? renderer.value.facsimiles.map(({ selector }) => selector).join(', ')
+        : 'a.pb[href*="iiif"], .lg figure'
+      hasFacsimiles = mediaType.value === 'tei' || (facsimileSelector.length > 0 && tmpDom.querySelector(facsimileSelector) !== null)
+      builtManifestsKey = manifestsKey()
+      isDocumentBuilt = true
+
+      if (mediaType.value === 'html' && manifests.value.length && Array.isArray(renderer.value.facsimiles)) {
         // Facsimile links of the renderer output, declared in renderer.facsimiles:
         // selector targets the link, image says where its IIIF image URL is.
         // When declared, they replace the default handling below.
@@ -169,14 +201,14 @@ export default {
             if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
               const source = image.selector ? current.querySelector(image.selector) : current
               const imageUrl = source?.getAttribute(image.attribute ?? 'href')
-              const frameNum = manifest.value.items.findIndex(cvs => cvs.items[0].items[0].body.id === imageUrl)
+              const facsimile = findFacsimile(manifests.value, imageUrl, current.getAttribute('data-manifest'))
               // An image missing from the manifest leaves the facsimile as it is
-              if (frameNum === -1) {
+              if (!facsimile) {
                 console.warn(`Document: facsimile image not in the manifest: ${imageUrl}`)
                 continue
               }
               const container = document.createElement('div')
-              container.innerHTML = `<page-break canvas-id="${manifest.value.items[frameNum].id}" canvas-num="${frameNum}" image="${imageUrl}"/>`
+              container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${imageUrl}"/>`
               // Replace the link with a PageBreak component
               current.parentNode.replaceChild(container.firstChild, current)
             } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
@@ -184,7 +216,7 @@ export default {
             }
           }
         }
-      } else if (mediaType.value === 'html' && manifest.value) {
+      } else if (mediaType.value === 'html' && manifests.value.length) {
         // Default handling, without renderer.facsimiles: hteiml page links and line group figures
         const allPageBeginning = Array.from(tmpDom.querySelectorAll('a.pb[href*="iiif"]'))
         for (let i = 0; i < allPageBeginning.length; i++) {
@@ -195,10 +227,14 @@ export default {
           // 2. check if there is a previous sibling (if not, this is the first pb of the current lb) -> creating page-break component
           // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first pb of the current lb) -> creating page-break component
           if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
+            const facsimile = findFacsimile(manifests.value, current.href, current.getAttribute('data-manifest'))
+            // An image missing from the manifest leaves the facsimile as it is
+            if (!facsimile) {
+              console.warn(`Document: facsimile image not in the manifest: ${current.href}`)
+              continue
+            }
             const container = document.createElement('div')
-            const canvasId = manifest.value.items.filter(cvs => cvs.items[0].items[0].body.id === current.href)[0].id
-            const frameNum = manifest.value.items.findIndex(cvs => cvs.items[0].items[0].body.id === current.href)
-            container.innerHTML = `<page-break canvas-id="${canvasId}" canvas-num="${frameNum}" image="${current.href}"/>`
+            container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${current.href}"/>`
             // Replace the link with a PageBreak component
             current.parentNode.replaceChild(container.firstChild, current)
           } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
@@ -214,10 +250,14 @@ export default {
           // 2. check if there is a previous sibling (if not, this is the first figure of the current lb) -> selecting the first img only and creating page-break component
           // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first figure of the current lb) -> selecting the first img only and creating page-break component
           if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
+            const facsimile = findFacsimile(manifests.value, current.querySelectorAll('a img')[0].src)
+            // An image missing from the manifest leaves the facsimile as it is
+            if (!facsimile) {
+              console.warn(`Document: facsimile image not in the manifest: ${current.querySelectorAll('a img')[0].src}`)
+              continue
+            }
             const container = document.createElement('div')
-            const canvasId = manifest.value.items.filter(cvs => cvs.items[0].items[0].body.id === current.querySelectorAll('a img')[0].src)[0].id
-            const frameNum = manifest.value.items.findIndex(cvs => cvs.items[0].items[0].body.id === current.querySelectorAll('a img')[0].src)
-            container.innerHTML = `<page-break canvas-id="${canvasId}" canvas-num="${frameNum}" image="${current.querySelectorAll('a img')[0].src}"/>`
+            container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${current.querySelectorAll('a img')[0].src}"/>`
             // Replace the link with a PageBreak component
             current.parentNode.replaceChild(container.firstChild, current)
           } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
@@ -249,11 +289,15 @@ export default {
           // 2. check if there is a previous sibling (if not, this is the first pb of the current lb) -> creating page-break component
           // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first pb of the current lb) -> creating page-break component
           if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'page-break')) {
-            const container = xmlDoc.createElement('div')
             const facs = current.getAttribute('facs')
-            const canvasId = manifest.value ? manifest.value.items.filter(cvs => cvs.items[0].items[0].body.id === facs)[0].id : ''
-            const frameNum = manifest.value ? manifest.value.items.findIndex(cvs => cvs.items[0].items[0].body.id === facs) : 1
-            container.innerHTML = `<page-break canvas-id="${canvasId}" canvas-num="${frameNum}" image="${facs}"/>`
+            const facsimile = manifests.value.length ? findFacsimile(manifests.value, facs) : noFacsimile
+            // An image missing from the manifest leaves the facsimile as it is
+            if (!facsimile) {
+              console.warn(`Document: facsimile image not in the manifest: ${facs}`)
+              continue
+            }
+            const container = xmlDoc.createElement('div')
+            container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${facs}"/>`
             current.parentNode.replaceChild(container.firstChild, current)
           } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'page-break') {
             current.parentNode.removeChild(current)
@@ -269,10 +313,14 @@ export default {
           // 2. check if there is a previous sibling (if not, this is the first figure of the current lb) -> selecting the first graphic only and creating page-break component
           // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first figure of the current lb) -> selecting the first graphic only and creating page-break component
           if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'page-break')) {
+            const facsimile = manifests.value.length ? findFacsimile(manifests.value, current.querySelectorAll('graphic')[0].getAttribute('url')) : noFacsimile
+            // An image missing from the manifest leaves the facsimile as it is
+            if (!facsimile) {
+              console.warn(`Document: facsimile image not in the manifest: ${current.querySelectorAll('graphic')[0].getAttribute('url')}`)
+              continue
+            }
             const container = xmlDoc.createElement('div')
-            const canvasId = manifest.value ? manifest.value.items.filter(cvs => cvs.items[0].items[0].body.id === current.querySelectorAll('graphic')[0].getAttribute('url')).id : ''
-            const frameNum = manifest.value ? manifest.value.items.findIndex(cvs => cvs.items[0].items[0].body.id === current.querySelectorAll('graphic')[0].getAttribute('url')) : 1
-            container.innerHTML = `<page-break canvas-id="${canvasId}" canvas-num="${frameNum}" image="${current.querySelectorAll('graphic')[0].getAttribute('url')}"/>`
+            container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${current.querySelectorAll('graphic')[0].getAttribute('url')}"/>`
             // Replace the link with a PageBreak component
             current.parentNode.replaceChild(container.firstChild, current)
           } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'page-break') {
@@ -366,10 +414,24 @@ export default {
       })
     })
 
+    const customDocument = shallowRef(buildCustomDocument())
+
+    // The text does not wait for the manifest, which depends on an external
+    // server. When it comes afterwards, the facsimile links become thumbnails.
+    watch(manifestsKey, (key) => {
+      if (!key || !isDocumentBuilt || !hasFacsimiles || key === builtManifestsKey) return
+
+      savedScrollY = window.scrollY
+      customDocument.value = buildCustomDocument()
+    })
+
     function scrollTo () {
       // If the selected item is an anchor, capture and scroll to that anchor
       const hash = route.hash ? route.hash.replace('#', '') : ''
-      if (hash.length > 0) {
+      if (savedScrollY !== null) {
+        window.scrollTo({ top: savedScrollY, behavior: 'instant' })
+        savedScrollY = null
+      } else if (hash.length > 0) {
         // bump the hash to ensure change detection
         // const bumpPath = `${import.meta.env.VITE_APP_APP_ROOT_URL}`.length <= 1 ? `${router.currentRoute.value.fullPath.split('#')[0]}#${hash}` : `${import.meta.env.VITE_APP_APP_ROOT_URL}${router.currentRoute.value.fullPath.split('#')[0]}#${hash}`
         // history.replaceState(null, '', bumpPath)
@@ -646,7 +708,7 @@ export default {
 
 
     watch(props, (newProps) => {
-      manifest.value = newProps.iiifManifest
+      manifests.value = newProps.iiifManifests ?? []
       mediaType.value = newProps.mediaTypeEndpoint
     }, { immediate: true })
 

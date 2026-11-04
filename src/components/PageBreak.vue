@@ -21,7 +21,7 @@ import {inject, nextTick} from 'vue'
 export default {
   name: 'PageBreak',
 
-  props: ['canvasId', 'canvasNum', 'image'],
+  props: ['manifestId', 'canvasId', 'canvasNum', 'firstCanvasId', 'image'],
 
   setup (props) {
     const mirador = inject('mirador')
@@ -38,10 +38,10 @@ export default {
         const currentCanvasId = Object.values(mirador.miradorStore.getState().windows)[0].canvasId
         if (currentCanvasId === props.canvasId && layout.getViewMode() !== 'text-mode') {
           layout.changeViewMode('init')
-          mirador.setCanvasId(props.canvasId.substring(0, props.canvasId.lastIndexOf('/f') + 1) + 'f1')
+          mirador.setCanvasId(props.firstCanvasId)
         } else {
 
-          mirador.setCanvasId(props.canvasId)
+          mirador.showCanvas(props.manifestId, props.canvasId)
           // if (layout.miradorVisible != true) {
           // layout.setMiradorVisible(true);
           if (layout.getViewMode() === 'text-mode') {
