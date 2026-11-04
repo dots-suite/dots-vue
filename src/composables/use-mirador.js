@@ -46,6 +46,7 @@ export default function useMirador(container) {
   const instance = {
     initialize,
     loadManifest,
+    receiveManifests,
     loadCollectionManifest,
     setCanvasId,
     showCanvas,
@@ -199,6 +200,19 @@ export default function useMirador(container) {
 
 
     resetView()
+  }
+
+  // Manifests already fetched: Mirador does not request those it holds
+  function receiveManifests(manifests) {
+    const held = instance.miradorStore?.getState().manifests ?? {}
+
+    for (const manifest of manifests) {
+      const manifestId = getManifestId(manifest)
+
+      if (!held[manifestId]?.json) {
+        dispatchAction(Mirador.actions.receiveManifest(manifestId, manifest))
+      }
+    }
   }
 
   function loadManifest(manifestObject, canvasId) {

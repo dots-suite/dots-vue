@@ -5,9 +5,10 @@
         <a :href="imageInfo" />
       </div>
       <div class="pb-thumbnail-parent">
-        <img
+        <button
           class="pb-thumbnail"
-          :src="thumbnail"
+          type="button"
+          aria-label="Afficher l'image"
           @click.prevent="goToCanvas($event)"
         />
       </div>
@@ -62,15 +63,10 @@ export default {
       }
     }
 
-    const thumbnail = `${props.image.replace(
-      '/full/full/0/default.jpg',
-      '/full/60,/0/default.jpg'
-    )}`
     const imageInfo = `${props.image.replace('/full/full/0/default.jpg', '')}`
 
     return {
       goToCanvas,
-      thumbnail,
       imageInfo
     }
   }
@@ -89,8 +85,15 @@ export default {
   position: absolute;
   left: -72px;
 }
+/* Only the icon shows: no image is requested from the IIIF server for it */
 .pb-thumbnail {
-  max-width: 60px;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
 }
 .pb-thumbnail-parent {
   content: "";
@@ -99,9 +102,6 @@ export default {
   height: 30px;
   background: url(../assets/images/icone-media.svg) top center / 24px auto no-repeat;
   margin-top: -8px;
-}
-.pb-thumbnail-parent img {
-  opacity: 0;
 }
 .pb-label {
   position: relative;
@@ -152,13 +152,9 @@ export default {
 #article .pb-component:hover .pb-thumbnail-parent {
   filter: none;
 }
-#article .pb-component .pb-thumbnail-parent img {
+#article .pb-component .pb-thumbnail {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  cursor: pointer;
 }
 
 /* In a table, it is vertically centred on its row */
