@@ -41,6 +41,7 @@
 </template>
 <script>
 import { shallowRef, defineAsyncComponent, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import CollectionHeader from '@/components/CollectionHeader.vue'
 
 export default {
@@ -71,6 +72,8 @@ export default {
   },
 
   setup (props) {
+    const route = useRoute()
+    const router = useRouter()
     const appBaseUrl = ref(`${import.meta.env.VITE_APP_APP_ROOT_URL}`)
     const rootCollectionId = ref(props.rootCollectionIdentifier)
     const collConfig = ref(props.collectionConfig)
@@ -83,49 +86,50 @@ export default {
     let tabs = []
     let currentTab = shallowRef('')
     const getTabs = async () => {
-      // const tabs = []
-      // loop through the non null (filter(x => x)) configuration tabs settings
-      for (let i = 0; i < aboutSettings.value.filter(x => x).length; i += 1) {
+      // Only the tabs naming a component: a null entry hides a tab, wherever it
+      // stands in the list, and an empty object {} has nothing to load
+      const tabSettings = aboutSettings.value.filter(tab => tab && tab.compName)
+      const comps = Object.fromEntries(Object.entries(import.meta.glob('confs/*/*.vue')).map(([key, value]) => {
+        const newKey = key.split('/').slice(-2).join('/')
+        return [newKey, value]
+      }))
+      for (const tab of tabSettings) {
         let component
-        const comps = Object.fromEntries(Object.entries(import.meta.glob('confs/*/*.vue')).map(([key, value]) => {
-          const newKey = key.split('/').slice(-2).join('/')
-          return [newKey, value]
-        }))
-        const match = comps[`${collConfig.value.collectionId}/${aboutSettings.value[i].compName}.vue`]
-        const matchRootCollection = comps[`${rootCollectionId.value}/${aboutSettings.value[i].compName}.vue`]
+        const match = comps[`${collConfig.value.collectionId}/${tab.compName}.vue`]
+        const matchRootCollection = comps[`${rootCollectionId.value}/${tab.compName}.vue`]
         // matching About pages for exact collection if defined
         if (match) {
-          component = defineAsyncComponent(() => import(`confs/${collConfig.value.collectionId}/${aboutSettings.value[i].compName}.vue`)
+          component = defineAsyncComponent(() => import(`confs/${collConfig.value.collectionId}/${tab.compName}.vue`)
             .then((comp) => {
               return comp
             })
             .catch((error) => {
-              console.error(`error loading confs/${collConfig.value.collectionId}/${aboutSettings.value[i].compName}.vue : `, error)
+              console.error(`error loading confs/${collConfig.value.collectionId}/${tab.compName}.vue : `, error)
             })
           )
         // matching About pages for root collection if defined
         } else if (matchRootCollection) {
-          component = defineAsyncComponent(() => import(`confs/${rootCollectionId.value}/${aboutSettings.value[i].compName}.vue`)
+          component = defineAsyncComponent(() => import(`confs/${rootCollectionId.value}/${tab.compName}.vue`)
             .then((comp) => {
               return comp
             })
             .catch((error) => {
-              console.error(`error loading ..confs/${rootCollectionId.value}/${aboutSettings.value[i].compName}.vue : `, error)
+              console.error(`error loading ..confs/${rootCollectionId.value}/${tab.compName}.vue : `, error)
             })
           )
         // matching About pages as default
         // TODO : replace tabName by the default tabNames if incorrectly set
         } else {
-          component = defineAsyncComponent(() => import(`./about/${aboutSettings.value[i].compName}.vue`)
+          component = defineAsyncComponent(() => import(`./about/${tab.compName}.vue`)
             .then((comp) => {
               return comp
             })
             .catch((error) => {
-              console.error(`error loading ${aboutSettings.value[i].compName}.vue : `, error)
+              console.error(`error loading ${tab.compName}.vue : `, error)
             })
           )
         }
-        tabs.push([aboutSettings.value[i].tabName, component])
+        tabs.push([tab.tabName, component])
         currentTab = shallowRef(tabs[0][1])
       }
     }
@@ -140,6 +144,12 @@ export default {
         aboutSettings.value = collConfig.value.aboutPageSettings
       } else {
         aboutSettings.value = []
+      }
+      // No about tab to show (aboutPageSettings missing, or no entry naming a
+      // component, as in getTabs): back to home
+      if (!aboutSettings.value.some(tab => tab && tab.compName)) {
+        router.replace({ name: 'Home', params: route.params.collId ? { collId: route.params.collId } : {} })
+        return
       }
       await getTabs()
     }, { deep: true, immediate: true })
