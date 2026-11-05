@@ -1,10 +1,5 @@
 import { onUnmounted } from 'vue'
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { Provider } from 'react-redux'
 import Mirador from 'mirador'
-import MiradorApp from 'mirador/dist/es/src/components/App'
-import createPluggableStore from 'mirador/dist/es/src/state/createPluggableStore'
 import { miradorImageToolsPlugin } from 'mirador-image-tools'
 import { getManifestId } from '@/composables/iiif-manifest'
 
@@ -24,11 +19,13 @@ export default function useMirador(container) {
       hideWindowTitle: true,
       maximizedByDefault: true
     },
+    // OpenSeadragon 6 draws with WebGL by default: the image vanishes when rotated
+    osdConfig: { drawer: 'canvas' },
     selectedTheme: 'light',
     themes: {
       light: {
         palette: {
-          type: 'light',
+          mode: 'light',
           primary: { main: '#971716' },
           secondary: { main: '#B9192F' }
         }
@@ -75,16 +72,9 @@ export default function useMirador(container) {
     }
 
     const config = { ...baseConfig, id: container.value.id }
-    instance.miradorStore = createPluggableStore(config)
+    instance.reactRoot = Mirador.viewer(config, { plugins: [...miradorImageToolsPlugin] })
+    instance.miradorStore = instance.reactRoot.store
     watchErrors()
-    instance.reactRoot = ReactDOM.createRoot(container.value)
-    instance.reactRoot.render(
-      React.createElement(
-        Provider,
-        { store: instance.miradorStore },
-        React.createElement(MiradorApp, { plugins: [...miradorImageToolsPlugin] })
-      )
-    )
     const fillColor = getComputedStyle(document.documentElement)
       .getPropertyValue('--fill-color')
       .trim()
@@ -140,7 +130,7 @@ export default function useMirador(container) {
       themes: {
         light: {
           palette: {
-            type: 'light',
+            mode: 'light',
             primary: {
               main: color
             },
@@ -154,14 +144,8 @@ export default function useMirador(container) {
   }
 
   function resetView() {
-    const homeButton = container.value?.querySelector(
-      'button[aria-label="Reset zoom"]'
-    )
-    if (homeButton) {
-      homeButton.click()
-    } else {
-      console.warn('use-mirador resetView: Reset zoom button not found')
-    }
+    // Not rendered yet in a window just opened, which shows the whole image anyway
+    container.value?.querySelector('button[aria-label="Reset zoom"]')?.click()
   }
 
   function loadCollectionManifest(collectionObject) {
@@ -202,6 +186,15 @@ export default function useMirador(container) {
     resetView()
   }
 
+  // Mirador reads seeAlso as objects, and turns the URLs of a v2 manifest (Gallica) into empty links
+  function withSeeAlsoObjects(manifest) {
+    if (!manifest.seeAlso) return manifest
+
+    const seeAlso = [manifest.seeAlso].flat().map(item => typeof item === 'string' ? { '@id': item } : item)
+
+    return { ...manifest, seeAlso }
+  }
+
   // Manifests already fetched: Mirador does not request those it holds
   function receiveManifests(manifests) {
     const held = instance.miradorStore?.getState().manifests ?? {}
@@ -210,7 +203,7 @@ export default function useMirador(container) {
       const manifestId = getManifestId(manifest)
 
       if (!held[manifestId]?.json) {
-        dispatchAction(Mirador.actions.receiveManifest(manifestId, manifest))
+        dispatchAction(Mirador.actions.receiveManifest(manifestId, withSeeAlsoObjects(manifest)))
       }
     }
   }

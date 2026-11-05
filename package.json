@@ -20,8 +20,8 @@
   "dependencies": {
     "jsonld": "9.0.0",
     "lodash": "4.17.21",
-    "mirador": "3.4.3",
-    "mirador-image-tools": "0.11.0",
+    "mirador": "4.3.0",
+    "mirador-image-tools": "1.0.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-image": "4.1.0",
@@ -29,7 +29,12 @@
     "vue-router": "4.6.3",
     "vue-slider-component": "4.1.0-beta.7",
     "vuex": "4.1.0",
-    "zod": "4.3.6"
+    "zod": "4.3.6",
+    "@mui/material": "9.5.0",
+    "@mui/system": "9.5.0",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "react-i18next": "15.7.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",
