@@ -34,6 +34,7 @@
                   :class="['footer-logo', `${logo.key}-logo`]"
                   :alt="logo.alt"
                   :src="logo.src"
+                  :style="logo.maxWidth ? { maxWidth: logo.maxWidth } : null"
                 />
               </a>
             </div>
@@ -146,18 +147,26 @@ export default {
       currCollection.value = newProps.currentCollection
     })
 
+    // footerLogos entries, merged from the generic to the collection settings:
+    // - maxWidth (CSS length) narrows a logo below the default width
+    // - order (number) puts a logo first: ordered logos come first, ascending,
+    //   then the others in their settings order
     const footLogos = computed(() => Object.entries(props.footerSettings.footerLogos || {})
       .filter(([, logo]) => logo && logo.imgName)
-      .map(([key, logo]) => ({
+      .map(([key, logo], index) => ({
         key,
         href: logo.href,
         alt: logo.alt || '',
+        maxWidth: logo.maxWidth,
+        order: Number.isFinite(logo.order) ? logo.order : Infinity,
+        index,
         src: resolveLogoUrl(logo.imgName, props.collectionIdentifier)
       }))
       .filter(logo => {
         if (!logo.src) console.warn(`AppFooter.vue footer logo "${logo.key}" not found`)
         return logo.src
-      }))
+      })
+      .sort((a, b) => a.order - b.order || a.index - b.index))
 
     return {
       currCollection,
