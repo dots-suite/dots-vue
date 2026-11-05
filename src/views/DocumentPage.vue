@@ -3218,17 +3218,17 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
     padding-right: 50px !important;
   }
 
-  div.MuiPaper-elevation4:has(button[aria-label="collapse"]) {
+  div.MuiPaper-elevation4:has(button[aria-label$="image tools"]) {
     right: unset !important;
     left: 8px;
   }
 
-  div.MuiPaper-elevation4:has(button[aria-label="collapse"]) .MuiSvgIcon-root {
+  div.MuiPaper-elevation4:has(button[aria-label$="image tools"]) .MuiSvgIcon-root {
     width: 24px !important;
     height: 24px !important;
   }
 
-  div.MuiPaper-elevation4:has(button[aria-label="collapse"]) .MuiIconButton-root {
+  div.MuiPaper-elevation4:has(button[aria-label$="image tools"]) .MuiIconButton-root {
     padding: 6px !important;
   }
 
@@ -3313,23 +3313,26 @@ ul.breadcrumb-top > li:nth-child(10) { z-index: 1; }
 
 }
 
-button[aria-label="Window options"] > span {
-  width: 100%;
-  height: 100%;
-  background: url('../assets/images/tools.svg') top center / 30px no-repeat;
-  /* background-color: transparent;*/
-  background-size: contain;
+button[aria-label="Window options"] {
+  background-image: url('../assets/images/tools.svg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 24px;
 }
 
-button[aria-label="Window options"] > span > svg {
+button[aria-label="Window options"] > svg {
   display: none;
 }
 /* force no height for Mirador bottom buttons container to correct an incorrect behaviour */
-.mirador-canvas-nav, .mirador52 {
+.mirador-canvas-nav {
   height: unset !important;
   & > * {
     background-color: unset !important;
   }
+}
+/* Zoom on the left, page navigation on the right, unless stacked in a narrow viewer */
+.mirador-canvas-nav:not(.mirador-canvas-nav-stacked) > .MuiStack-root {
+  flex-direction: row-reverse !important;
 }
 
 </style>
