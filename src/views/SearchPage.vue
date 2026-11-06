@@ -122,7 +122,7 @@
             :key="granularity || 'resources'"
             class="search-facets"
             :opened-facets="openedFacets"
-            :facets="visibleFacets"
+            :facets="panelFacets"
             :temporal-facets="visibleTemporal"
             :active-facets="activeFacetTags"
             :ranges="ranges"
@@ -208,6 +208,10 @@ import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
 // Facets that do not come from the metadata: resources narrows the perimeter like collections
 const DEFAULT_FACET_LABELS = { resources: 'Ressources' }
 const DEFAULT_FACET_ORDERS = { resources: 1 }
+// Rank of the first terms facet the config does not order: the rest follow in
+// the backend order, before the temporal facets it does not order (or after,
+// when they are ordered explicitly)
+const FIRST_TERMS_FACET_ORDER = 1000
 
 export default {
   name: 'SearchPage',
@@ -482,7 +486,9 @@ export default {
             label: granularity.value ? c?.label || facet.key : c?.label || facet.label,
             // explicit order otherwise backend order
             order: c?.order ?? null,
-            backendOrder: index,
+            // where the facet sits among the terms facets of the backend
+            // when neither side sets an order: same index as in the panel
+            backendOrder: index + FIRST_TERMS_FACET_ORDER,
             // available range with current search criteria
             // fallback on corpus min/max if missing (no results, etc.)
             available_min: available?.min ?? facet.min,
@@ -495,22 +501,6 @@ export default {
         .filter(facet => {
           const c = configMap.get(facet.key)
           return c?.enabled !== false
-        })
-        .sort((a, b) => {
-          // both a & b are configured
-          if (a.order != null && b.order != null) {
-            return a.order - b.order
-          }
-          // a configured, not b
-          if (a.order != null) {
-            return a.order - b.backendOrder
-          }
-          // b configured, not a
-          if (b.order != null) {
-            return a.backendOrder - b.order
-          }
-          // none configured : use backend order
-          return a.backendOrder - b.backendOrder
         })
     })
 
@@ -554,14 +544,23 @@ export default {
             label: config?.label || (granularity.value ? id : DEFAULT_FACET_LABELS[id] || id),
             values,
             order:
-              config?.order ?? DEFAULT_FACET_ORDERS[id] ?? 999
+              config?.order ?? DEFAULT_FACET_ORDERS[id] ?? FIRST_TERMS_FACET_ORDER + result.length
           })
         })
-
       return result.sort(
         (a,b)=>a.order-b.order
       )
     })
+
+    // One rank for both kinds: a temporal facet ordered after the terms ones
+    // by the backend has to be listed after them too
+    const panelFacets = computed(() => [
+      ...visibleFacets.value,
+      ...visibleTemporal.value.map(facet => ({
+        ...facet,
+        order: facet.order ?? facet.backendOrder
+      }))
+    ].sort((a, b) => a.order - b.order))
 
     const buildPassageUrl = (resId, hit, tocSettings, collId, resCollId, isDocProjectIdIncluded) => {
       if (!hit) return null
@@ -1227,6 +1226,7 @@ export default {
       onTemporalChange,
       visibleTemporal,
       visibleFacets,
+      panelFacets,
       ranges: search.ranges,
       onToggleFacet,
       openFacet,
