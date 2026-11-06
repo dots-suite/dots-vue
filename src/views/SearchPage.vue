@@ -209,9 +209,10 @@ import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
 const DEFAULT_FACET_LABELS = { resources: 'Ressources' }
 const DEFAULT_FACET_ORDERS = { resources: 1 }
 // Rank of the first terms facet the config does not order: the rest follow in
-// the backend order, before the temporal facets it does not order (or after,
-// when they are ordered explicitly)
+// the backend order, after the ordered ones
 const FIRST_TERMS_FACET_ORDER = 1000
+// Same for the temporal facets, whose explicit order is usually the lowest
+const FIRST_TEMPORAL_FACET_ORDER = 2000
 
 export default {
   name: 'SearchPage',
@@ -486,9 +487,9 @@ export default {
             label: granularity.value ? c?.label || facet.key : c?.label || facet.label,
             // explicit order otherwise backend order
             order: c?.order ?? null,
-            // where the facet sits among the terms facets of the backend
+            // where the facet sits among the temporal facets of the backend
             // when neither side sets an order: same index as in the panel
-            backendOrder: index + FIRST_TERMS_FACET_ORDER,
+            backendOrder: index + FIRST_TEMPORAL_FACET_ORDER,
             // available range with current search criteria
             // fallback on corpus min/max if missing (no results, etc.)
             available_min: available?.min ?? facet.min,
@@ -553,14 +554,22 @@ export default {
     })
 
     // One rank for both kinds: a temporal facet ordered after the terms ones
-    // by the backend has to be listed after them too
-    const panelFacets = computed(() => [
-      ...visibleFacets.value,
-      ...visibleTemporal.value.map(facet => ({
-        ...facet,
-        order: facet.order ?? facet.backendOrder
-      }))
-    ].sort((a, b) => a.order - b.order))
+    // by the backend is listed after them too. The backend may list the same
+    // key in both blocks (an index field used as a date range): the temporal
+    // one wins, it is the one the panel renders with a slider.
+    const panelFacets = computed(() => {
+      const byKey = new Map()
+
+      ;[
+        ...visibleFacets.value,
+        ...visibleTemporal.value.map(facet => ({
+          ...facet,
+          order: facet.order ?? facet.backendOrder
+        }))
+      ].forEach(facet => byKey.set(facet.key, facet))
+
+      return [...byKey.values()].sort((a, b) => a.order - b.order)
+    })
 
     const buildPassageUrl = (resId, hit, tocSettings, collId, resCollId, isDocProjectIdIncluded) => {
       if (!hit) return null
