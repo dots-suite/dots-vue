@@ -42,11 +42,15 @@
     "searchConfig": {
       "granularities": {
         "default": {
+          "countLabel": {
+            "singular": "résultat",
+            "plural": "résultats"
+          },
           "columns": [
             {
               "key": "dublinCore.title",
               "label": "Titre",
-              "width": "2fr"
+              "width": "1fr"
             },
             {
               "key": "dublinCore.date",

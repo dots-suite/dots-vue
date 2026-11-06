@@ -201,37 +201,69 @@
             <li v-if="isOpen(item.identifier)">
               <div class="li container row-details">
                 <div class="cell" :style="{ gridColumn: '1 / -1' }">
-                  <ul class="hits-list">
-                    <li
-                      v-for="hit in item.hits"
-                      :key="hit.passageId"
+                  <div class="hits-container">
+                    <!-- Expanded list: folding it back would require scrolling
+                         to the bottom, so the icon sticks under the search
+                         header, at the top right of the grey container -->
+                    <div
+                      v-if="areAllHitsShown(item.identifier)"
+                      class="hits-fold-row"
                     >
-                      <router-link
-                        :to="hit.passageUrl"
-                        class="hit-breadcrumb"
+                      <button
+                        type="button"
+                        class="hits-fold"
+                        title="Replier les passages"
+                        aria-label="Replier les passages"
+                        @click.stop="toggleAllHits(item.identifier)"
                       >
-                        <template
-                          v-for="(part, i) in buildBreadcrumbParts(hit)"
-                          :key="i"
+                        <DirectionalChevron direction="up" />
+                      </button>
+                    </div>
+                    <ul class="hits-list">
+                      <li
+                        v-for="hit in visibleHits(item)"
+                        :key="hit.passageId"
+                      >
+                        <router-link
+                          :to="hit.passageUrl"
+                          class="hit-breadcrumb"
                         >
-                          <span
-                            v-if="i > 0"
-                            class="hit-breadcrumb-sep"
-                            aria-hidden="true"
-                          >&gt;</span>
-                          <span class="hit-breadcrumb-tag">{{ part }}</span>
-                        </template>
-                      </router-link>
-                      <ul v-if="hit.highlight?.content">
-                        <li
-                          v-for="phrase in hit.highlight.content"
-                          :key="phrase"
-                        >
-                          <span v-html="phrase"></span>
-                        </li>
-                      </ul>
-                    </li>
-                  </ul>
+                          <template
+                            v-for="(part, i) in buildBreadcrumbParts(hit)"
+                            :key="i"
+                          >
+                            <span
+                              v-if="i > 0"
+                              class="hit-breadcrumb-sep"
+                              aria-hidden="true"
+                            >&gt;</span>
+                            <span class="hit-breadcrumb-tag">{{ part }}</span>
+                          </template>
+                        </router-link>
+                        <ul v-if="hit.highlight?.content">
+                          <li
+                            v-for="phrase in hit.highlight.content"
+                            :key="phrase"
+                          >
+                            <span v-html="phrase"></span>
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                    <div
+                      v-if="isPassagesToggleVisible(item) && !areAllHitsShown(item.identifier)"
+                      class="hits-toggle-row"
+                    >
+                      <button
+                        type="button"
+                        class="hits-toggle"
+                        @click.stop="toggleAllHits(item.identifier)"
+                      >
+                        Voir les {{ item.hits.length }} passages
+                        <DirectionalChevron direction="down" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </li>
@@ -397,13 +429,19 @@ import { router } from '@/router'
 import store from '@/store'
 import { useTable } from '@/composables/useTable.js'
 
+import DirectionalChevron from '@/assets/images/DirectionalChevron.vue'
 import SortIcon from '@/assets/images/SortIcon.vue'
 import Pagination from '@/components/Pagination.vue'
+
+// Neutral wording when neither the configuration nor the caller names the
+// listed fragments, so that an over-naive plural ("indexs") is never shown
+const DEFAULT_COUNT_LABELS = { singular: 'résultat', plural: 'résultats' }
 
 
 export default {
 name: 'ResourcesList',
   components: {
+    DirectionalChevron,
     SortIcon,
     Pagination
   },
@@ -421,8 +459,9 @@ name: 'ResourcesList',
     isWithHighlights: Boolean,
     // Fragment results (granularity): one row per fragment, linked to its passage
     isFragmentList: Boolean,
-    // Name of the listed fragments in the results count, e.g. "actes"
-    countLabel: { type: String, default: null },
+    // Name of the listed fragments in the results count, singular and plural
+    // (e.g. "index" / "index"): an over-naive plural ("indexs") is never derived
+    countLabels: { type: Object, default: null },
     // true / false after search is executed ; null when irrelevant (outside search mode or search missing scope collection)
     collectionIndexed: { type: Boolean, default: null }
   },
@@ -460,6 +499,23 @@ name: 'ResourcesList',
     }
 
     const isOpen = (id) => openRows.value.includes(id)
+
+    const HITS_PREVIEW_LIMIT = 5
+    const expandedHits = ref([])
+
+    // Toggle rather than a one-way expansion: an expanded row can be folded
+    // back to the preview, the toggle staying visible in both states
+    const toggleAllHits = id => {
+      expandedHits.value = expandedHits.value.includes(id)
+        ? expandedHits.value.filter(i => i !== id)
+        : [...expandedHits.value, id]
+    }
+    const areAllHitsShown = id => expandedHits.value.includes(id)
+    const isPassagesToggleVisible = item => item.hits.length > HITS_PREVIEW_LIMIT
+    const visibleHits = item =>
+      areAllHitsShown(item.identifier)
+        ? item.hits
+        : item.hits.slice(0, HITS_PREVIEW_LIMIT)
 
     const columns = computed(() => {
       const baseCols = (props.columnsConfig || []).filter(Boolean)
@@ -592,7 +648,9 @@ name: 'ResourcesList',
       const passages = passageCount.value
 
       if (props.isFragmentList) {
-        return `${docs} ${props.countLabel || 'fragments'}`
+        const labels = props.countLabels || DEFAULT_COUNT_LABELS
+        const label = docs > 1 ? labels.plural : labels.singular
+        return `${docs} ${label}`
       }
 
       const docLabel = docs > 1 ? 'documents' : 'document'
@@ -643,9 +701,21 @@ name: 'ResourcesList',
         return chevronWidth
       }
 
-      const widths = cols.some(col => col.width)
-        ? cols.map(col => col.width || '1fr')
-        : Array(cols.length).fill('1fr')
+      // A configured width is a weight relative to the other columns: columns
+      // without one get the average weight, so that a single `2fr` column does
+      // not leave every other column at `1fr` clamped to a narrow one third
+      const declaredWeights = cols
+        .map(col => parseFloat(col.width))
+        .filter(weight => weight > 0)
+
+      const defaultWeight = declaredWeights.length
+        ? declaredWeights.reduce((sum, weight) => sum + weight, 0) / declaredWeights.length
+        : 1
+
+      const widths = cols.map(col => {
+        const weight = parseFloat(col.width)
+        return `${weight > 0 ? weight : defaultWeight}fr`
+      })
 
       if (isHighlights.value) {
         return [...widths, chevronWidth].join(' ')
@@ -735,6 +805,10 @@ name: 'ResourcesList',
       isHighlights,
       toggle,
       isOpen,
+      toggleAllHits,
+      areAllHitsShown,
+      isPassagesToggleVisible,
+      visibleHits,
       columns,
       table,
       filters,
@@ -931,11 +1005,19 @@ name: 'ResourcesList',
   color: #000000;
 }
 
-.list-mode .cell .hits-list {
+/* Grey container: the passages and their toggle, the toggle is inside it */
+.list-mode .cell .hits-container {
   padding: 1rem;
+  background-color: #f1f1f1;
+}
+
+.list-mode .cell .hits-list {
   list-style-type: none;
   margin: 0;
-  background-color: #f1f1f1;
+  padding: 0;
+  /* Band kept free on the right for the sticky fold icon, so the passages
+     never run under it (see .hits-fold) */
+  padding-right: calc(28px + 12px);
 }
 
 .list-mode .cell .hits-list > li {
@@ -1024,6 +1106,100 @@ name: 'ResourcesList',
 .list-mode .cell .hits-list em {
   background-color: #ffe066 !important;
   font-weight: bold;
+}
+
+/* Fold icon: sticks in the middle of the viewport height while scrolling the
+   expanded passages, on the right of the grey container. The 14px shift is
+   half the 28px button, so the button is centred; z-index below the stuck
+   header (22); the header height and shift are set by SearchPage */
+.list-mode .cell .hits-fold-row {
+  position: sticky;
+  top: calc(
+    var(--search-header-height, 0px)
+    + var(--search-bar-stuck-shift, 0px)
+    + (100dvh - var(--search-header-height, 0px) - var(--search-bar-stuck-shift, 0px)) / 2
+    - 14px
+  );
+  z-index: 21;
+  display: flex;
+  justify-content: flex-end;
+  /* no extra height: the icon floats above the passages' start */
+  height: 0;
+  margin-bottom: -.5rem;
+}
+
+/* Same look as the "back to top" arrow, smaller and square: a chevron in the
+   collection colour on white, with its own background so the passages do not
+   show through while it sticks */
+.list-mode .cell .hits-fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--fill-color);
+  border-radius: var(--button-border-radius);
+  background: #ffffff;
+  color: var(--fill-color);
+  cursor: pointer;
+}
+
+.list-mode .cell .hits-fold :deep(.icon-wrapper) {
+  width: 12px;
+  height: 12px;
+}
+
+.list-mode .cell .hits-fold:hover {
+  background: var(--fill-color);
+  color: #ffffff;
+}
+
+@media screen and (max-width: 768px) {
+  .list-mode .cell .hits-fold-row {
+    height: auto;
+    margin-bottom: .25rem;
+  }
+
+  .list-mode .cell .hits-fold {
+    width: 24px;
+    height: 24px;
+  }
+
+  .list-mode .cell .hits-list {
+    padding-right: calc(24px + 8px);
+  }
+}
+
+/* Passages toggle: bottom of the grey container, aligned to the right */
+.list-mode .cell .hits-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: .5rem;
+}
+
+.list-mode .cell .hits-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fill-color);
+  font-family: var(--font-primary), sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.list-mode .cell .hits-toggle:hover {
+  text-decoration: var(--text-decoration-hover);
+}
+
+/* Same chevron as the sticky fold button, pointing down to expand */
+.list-mode .cell .hits-toggle :deep(.icon-wrapper) {
+  width: 12px;
+  height: 12px;
 }
 
 /* Open/close the hits of a full-text row: small, in the collection colour,
