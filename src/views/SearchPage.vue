@@ -138,6 +138,14 @@
         </aside>
       </Transition>
       <div class="page-main">
+        <p
+          v-if="configWarning === 'level0-mixed'"
+          class="search-config-warning"
+        >
+          La configuration de recherche inclut le niveau 0 (searchConfig.include.levels) : c'est la ressource
+          elle-même, qu'aucun fragment ne porte, il est donc ignoré. Pour chercher dans les documents, utilisez
+          "target": "resource" dans la configuration de la collection.
+        </p>
         <div class="document-list list-mode">
           <ResourcesList
             :data="tableData"
@@ -153,6 +161,7 @@
             :is-fragment-list="isFragmentSearch"
             :count-labels="fragmentCountLabels"
             :collection-indexed="search.collectionIndexed.value"
+            :config-warning="configWarning"
             @sort-change="updateSort"
             @page-change="changePage"
           /><!--v-if="tableData.length > 0"-->
@@ -258,6 +267,17 @@ export default {
     const temporalFacetsConfig = computed(() => searchConfig.value.temporalFacets || [])
 
     // Count of a fragment search: countLabel names the listed fragments
+    // Level 0 is the resource itself: no fragment carries it
+    const configWarning = computed(() => {
+      const levels = searchConfig.value.target === 'fragment' ? searchConfig.value.include?.levels || [] : []
+      if (!levels.includes(0)) return null
+      return levels.length === 1 ? 'level0' : 'level0-mixed'
+    })
+
+    watch(configWarning, warning => {
+      if (warning) console.warn(`SearchPage: ${collectionId.value} searches fragments of level 0, the resource itself; use "target": "resource"`)
+    }, { immediate: true })
+
     const fragmentCountLabels = computed(() => {
       const labels = searchConfig.value.countLabel || {}
       return {
@@ -1090,12 +1110,21 @@ export default {
       sidebarEl,
       toggleSidebar,
       isFragmentSearch,
+      configWarning,
       fragmentCountLabels,
     }
   }
 }
 </script>
 <style scoped>
+.search-config-warning {
+  margin: 20px 0 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid #8a5a00;
+  background: #fbf6ec;
+  color: #8a5a00;
+}
+
 .document-list {
   display: flex;
   justify-content: center;

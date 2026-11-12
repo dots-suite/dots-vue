@@ -400,6 +400,16 @@
           </div>
         </li>
 
+        <li v-else-if="showConfigWarning" class="empty-row empty-row--not-indexed">
+          <div class="li container row">
+            <div class="cell">
+              Aucun résultat : cette recherche porte sur les fragments de niveau 0 (searchConfig.include.levels),
+              qui n'existent pas, car le niveau 0 est la ressource elle-même. Pour chercher dans les documents,
+              utilisez "target": "resource" dans la configuration de la collection.
+            </div>
+          </div>
+        </li>
+
         <li v-else-if="showNoResults" class="empty-row">
           <div class="li container row">
             <div class="cell">
@@ -463,7 +473,9 @@ name: 'ResourcesList',
     // (e.g. "index" / "index"): an over-naive plural ("indexs") is never derived
     countLabels: { type: Object, default: null },
     // true / false after search is executed ; null when irrelevant (outside search mode or search missing scope collection)
-    collectionIndexed: { type: Boolean, default: null }
+    collectionIndexed: { type: Boolean, default: null },
+    // Inconsistent search configuration, explained instead of "no results"
+    configWarning: { type: String, default: null }
   },
   emits: [
     'sort-change',
@@ -565,8 +577,12 @@ name: 'ResourcesList',
       () => isElasticSearch.value && hasNoRows.value && props.collectionIndexed === false
     )
 
+    const showConfigWarning = computed(
+      () => hasNoRows.value && !showNotIndexed.value && props.configWarning === 'level0'
+    )
+
     const showNoResults = computed(
-      () => hasNoRows.value && !showNotIndexed.value
+      () => hasNoRows.value && !showNotIndexed.value && !showConfigWarning.value
     )
 
 
@@ -801,6 +817,7 @@ name: 'ResourcesList',
       pageNumber,
       bucketsCount,
       showNotIndexed,
+      showConfigWarning,
       showNoResults,
       isHighlights,
       toggle,
