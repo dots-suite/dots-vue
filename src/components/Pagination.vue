@@ -39,6 +39,7 @@
         :max="totalPages"
         placeholder="Page..."
         class="current-page"
+        :style="{ '--page-digits': String(totalPages).length }"
         :disabled="totalPages <= 1 || isTableLoading"
         inputmode="numeric"
         pattern="[0-9]*"
@@ -281,6 +282,9 @@ function onBlur() {
   }
 
   & > input.current-page {
+    /* Wide enough for the last page number, a button wide at least */
+    width: calc(var(--page-digits, 1) * 1ch + 14px);
+    min-width: var(--button-size);
     padding: 0 !important;
     border: 1px solid #dbdbdb;
     border-radius: var(--button-border-radius);
