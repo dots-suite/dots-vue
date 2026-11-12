@@ -54,6 +54,8 @@ function createEmptySearchState() {
 
     // Fragment search restrictions ({ citeTypes, levels }), null for a resource search
     fragmentScope: null,
+    // Sort of a search without term while the reader has not chosen one (searchConfig.defaultSort)
+    defaultSort: '',
 
     // Default search mode: full text
     isFulltextSearch: true,
@@ -342,6 +344,15 @@ export default {
       s.sorts = ''
       s.result = []
 
+      invalidatePagination(s)
+    },
+
+    setSearchDefaultSort(state, v) {
+      const s = getProject(state)
+
+      if (!s || s.defaultSort === (v || '')) return
+
+      s.defaultSort = v || ''
       invalidatePagination(s)
     },
 

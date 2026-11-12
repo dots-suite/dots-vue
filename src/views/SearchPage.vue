@@ -406,6 +406,7 @@ export default {
           key: 'collections',
           label: collectionsConfig?.label || 'Collections',
           values: collections,
+          sort: collectionsConfig?.sort,
           order: 0
         })
       }
@@ -426,6 +427,7 @@ export default {
             key: id,
             label: config?.label || DEFAULT_FACET_LABELS[id] || id,
             values,
+            sort: config?.sort,
             order:
               config?.order ?? DEFAULT_FACET_ORDERS[id] ?? FIRST_TERMS_FACET_ORDER + result.length
           })
@@ -583,13 +585,14 @@ export default {
 
         return result.map(fragment => {
           const pathIds = fragment.path_ids || []
-          const pathLabels = (fragment.path || '').split(' > ')
+          // Collection labels, read from their "id###label" facet keys
+          const collectionLabels = Object.fromEntries((fragment.collection_facets || []).map(key => key.split('###')))
           // path_ids: [root, sub-collections…, resource]
           const parentIndex = pathIds.length - 2
           const subCollection = parentIndex > 0
-            ? { id: pathIds[parentIndex], label: pathLabels[parentIndex] || pathIds[parentIndex] }
+            ? { id: pathIds[parentIndex], label: collectionLabels[pathIds[parentIndex]] || pathIds[parentIndex] }
             : null
-          const resourceLabel = fragment.resource_title || pathLabels[pathLabels.length - 1] || fragment.resource_id
+          const resourceLabel = fragment.resource_title || fragment.resource_id
 
           const route = buildPassageUrl(
             fragment.resource_id,
@@ -920,6 +923,13 @@ export default {
           search.setCollectionId(newVal)
         }
       },
+      { immediate: true }
+    )
+
+    // Sort of a search without term, until the reader chooses a column
+    watch(
+      () => searchConfig.value.defaultSort,
+      sort => search.setDefaultSort(sort),
       { immediate: true }
     )
 

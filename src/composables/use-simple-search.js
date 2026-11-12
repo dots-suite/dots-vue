@@ -106,6 +106,7 @@ export default function useSimpleSearch() {
   const setExcludedTemporalFacets = v => store.commit('search/setSearchExcludedTemporalFacets', v)
   const setExcludedFacets = v => store.commit('search/setSearchExcludedFacets', v)
   const setFragmentScope = v => store.commit('search/setSearchFragmentScope', v)
+  const setDefaultSort = v => store.commit('search/setSearchDefaultSort', v)
   const setFacet = ({ facetType, value }) =>
     store.commit('search/setFacet', {
       facetType,
@@ -180,7 +181,9 @@ export default function useSimpleSearch() {
         (fragment.levels?.length ? `&level=${fragment.levels.join(',')}` : '')
       : ''
 
-    const sortArg = s.sorts ? `&sort=${s.sorts}` : ''
+    // With a term, relevance stays the default order
+    const sorts = s.sorts || (!s.term?.trim() && s.defaultSort) || ''
+    const sortArg = sorts ? `&sort=${sorts}` : ''
     const highlightArg = s.noHighlight ? '&no-highlight' : ''
     const termValue = !isResourceSearch.value ? (s.term || '***') : ''
 
@@ -278,6 +281,7 @@ export default function useSimpleSearch() {
       searchState.value?.filters,
       searchState.value?.ranges,
       searchState.value?.sorts,
+      searchState.value?.defaultSort,
       searchState.value?.collectionId,
       searchState.value?.noHighlight,
       searchState.value?.afterKey,
@@ -402,6 +406,7 @@ export default function useSimpleSearch() {
     setExcludedTemporalFacets,
     setExcludedFacets,
     setFragmentScope,
+    setDefaultSort,
 
     saveSnapshot,
     restoreSnapshot,

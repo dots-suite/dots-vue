@@ -617,6 +617,34 @@ function availableFacetCount(facet) {
     return filteredFacetValues(facet.id, facet.values ?? []).length
 }
 
+// Case and accents ignored: É sorts with the E, æ as ae
+const labelCollator = new Intl.Collator('fr', { sensitivity: 'base' })
+
+const byLabel = (a, b) => labelCollator.compare(a.label || a.value || '', b.label || b.value || '')
+const byCount = (a, b) => (b.count ?? 0) - (a.count ?? 0)
+// Values without a path_order (metadata facets) go last
+const byPathOrder = (a, b) => (a.path_order ?? '\uffff') < (b.path_order ?? '\uffff') ? -1 : (a.path_order ?? '\uffff') > (b.path_order ?? '\uffff') ? 1 : 0
+
+// Facet sort declared in searchConfig.facets: "label" (default), "count" or "path_order"; "-" reverses it
+const FACET_SORTS = {
+    label: [byLabel, byPathOrder, byCount],
+    count: [byCount, byLabel],
+    path_order: [byPathOrder, byLabel]
+}
+
+function facetValueComparator(sort, facetId) {
+    const descending = typeof sort === 'string' && sort.startsWith('-')
+    let name = (sort || 'label').replace(/^-/, '')
+
+    if (!FACET_SORTS[name]) {
+        console.warn(`SearchFacets: unknown sort "${sort}" for the ${facetId} facet, sorted by label`)
+        name = 'label'
+    }
+
+    const [primary, ...ties] = FACET_SORTS[name]
+    return (a, b) => (descending ? -primary(a, b) : primary(a, b)) || ties.reduce((result, compare) => result || compare(a, b), 0)
+}
+
 function filteredFacetValues(facetId, values) {
     const term =
         (facetFilters.value[facetId] || '')
@@ -643,11 +671,8 @@ function filteredFacetValues(facetId, values) {
         )
     }
 
-    const sortAlpha = (a,b) =>
-        (a.label || a.value || '')
-            .localeCompare((b.label || b.value || ''), 'fr', { sensitivity:'base' })
-
-    available.sort(sortAlpha)
+    const facet = props.facets.find(f => f.key === facetId)
+    available.sort(facetValueComparator(facet?.sort, facetId))
 
     // Selected values are dropped, not listed first: they already appear in
     // ActiveSearchFilters (and as tags under the facet header), which is where
