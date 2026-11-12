@@ -431,9 +431,16 @@ export default {
     )
 
     function mergeConfig(...configs) {
-      return _.mergeWith({}, ...configs, (objValue, srcValue) => {
+      return _.mergeWith({}, ...configs, (objValue, srcValue, key) => {
         if (Array.isArray(srcValue)) {
           return _.cloneDeep(srcValue)
+        }
+
+        if (key === 'searchConfig' && srcValue) {
+          // Each key replaces the inherited one; a change of target restarts from the defaults
+          const changed = srcValue.target && srcValue.target !== (objValue?.target || 'resource')
+          const base = changed ? appConfig.value.genericConf?.searchConfig : objValue
+          return _.cloneDeep({ ...base, ...srcValue })
         }
 
         return undefined

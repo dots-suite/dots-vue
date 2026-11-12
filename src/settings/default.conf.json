@@ -40,29 +40,16 @@
       }
     },
     "searchConfig": {
-      "granularities": {
-        "default": {
-          "countLabel": {
-            "singular": "résultat",
-            "plural": "résultats"
-          },
-          "columns": [
-            {
-              "key": "dublinCore.title",
-              "label": "Titre",
-              "width": "1fr"
-            },
-            {
-              "key": "dublinCore.date",
-              "label": "Date",
-              "type": "date"
-            },
-            {
-              "key": "dublinCore.creator",
-              "label": "Auteur"
-            }
-          ]
+      "target": "resource",
+      "columns": [
+        {
+          "key": "dublinCore.title",
+          "label": "Title"
         }
+      ],
+      "countLabel": {
+        "singular": "result",
+        "plural": "results"
       }
     },
     "footerSettings": {

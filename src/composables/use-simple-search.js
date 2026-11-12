@@ -105,7 +105,7 @@ export default function useSimpleSearch() {
   const setIsFulltextSearch = v => store.commit('search/setSearchIsFulltextSearch', v)
   const setExcludedTemporalFacets = v => store.commit('search/setSearchExcludedTemporalFacets', v)
   const setExcludedFacets = v => store.commit('search/setSearchExcludedFacets', v)
-  const setGranularity = v => store.commit('search/setSearchGranularity', v)
+  const setFragmentScope = v => store.commit('search/setSearchFragmentScope', v)
   const setFacet = ({ facetType, value }) =>
     store.commit('search/setFacet', {
       facetType,
@@ -173,9 +173,11 @@ export default function useSimpleSearch() {
 
 })
 
-    // A fragment search lists one fragment type (citeType) instead of resources
-    const granularityArg = s.granularity
-      ? `&scope=fragment&citeType=${encodeURIComponent(s.granularity)}`
+    const fragment = s.fragmentScope
+    const scopeArg = fragment
+      ? '&scope=fragment' +
+        (fragment.citeTypes?.length ? `&citeType=${fragment.citeTypes.map(encodeURIComponent).join(',')}` : '') +
+        (fragment.levels?.length ? `&level=${fragment.levels.join(',')}` : '')
       : ''
 
     const sortArg = s.sorts ? `&sort=${s.sorts}` : ''
@@ -262,7 +264,7 @@ export default function useSimpleSearch() {
         }`
     }
 
-    const searchUrl = `${_baseApiURL}/search?query=${encodeURIComponent(termValue)}&${filterArgs}&page[number]=${s.pageNum}&page[size]=${s.pageSize}${sortArg}${highlightArg}${groupbyArg}${collectionArg}${facetArgs}${rangesArg}${temporalArg}${excludeFacetsArg}${afterArg}${granularityArg}`
+    const searchUrl = `${_baseApiURL}/search?query=${encodeURIComponent(termValue)}&${filterArgs}&page[number]=${s.pageNum}&page[size]=${s.pageSize}${sortArg}${highlightArg}${groupbyArg}${collectionArg}${facetArgs}${rangesArg}${temporalArg}${excludeFacetsArg}${afterArg}${scopeArg}`
 
     api.setQuery(searchUrl)
     console.log('use-simple-search.js updateQuery searchUrl :', searchUrl)
@@ -282,7 +284,7 @@ export default function useSimpleSearch() {
       JSON.stringify(searchState.value?.facets?.selected),
       JSON.stringify(searchState.value?.excludedTemporalFacets),
       JSON.stringify(searchState.value?.excludedFacets),
-      searchState.value?.granularity,
+      JSON.stringify(searchState.value?.fragmentScope),
     ],
     updateQuery,
     { immediate: true, deep: true }  // garde le comportement initial de watchEffect
@@ -324,7 +326,6 @@ export default function useSimpleSearch() {
           facets: _res.facets ?? _res['facets'] ?? {},
           highlight_patterns: _res.highlight_patterns ?? [],
           temporal: _res.temporal ?? {},
-          granularities: _res.granularities ?? [],
           // null when search is missing collection id
           collection_indexed: _res.collection_indexed ?? null
         }
@@ -338,7 +339,6 @@ export default function useSimpleSearch() {
           facets: _res.facets ?? _res['facets'] ?? {},
           highlight_patterns: _res.highlight_patterns ?? [],
           temporal: _res.temporal ?? {},
-          granularities: _res.granularities ?? [],
           // null when search is missing collection id
           collection_indexed: _res.collection_indexed ?? null
         }
@@ -381,8 +381,7 @@ export default function useSimpleSearch() {
     isFulltextSearch: computed(() => searchState.value?.isFulltextSearch ?? true),
     isResultTableMode: computed(() => searchState.value?.isResultTableMode ?? true),
 
-    granularity: computed(() => searchState.value?.granularity ?? null),
-    granularities: computed(() => searchState.value?.granularities ?? []),
+    isFragmentSearch: computed(() => !!searchState.value?.fragmentScope),
 
     setNoHighlight,
     setTerm,
@@ -402,7 +401,7 @@ export default function useSimpleSearch() {
     setFacetClosed,
     setExcludedTemporalFacets,
     setExcludedFacets,
-    setGranularity,
+    setFragmentScope,
 
     saveSnapshot,
     restoreSnapshot,

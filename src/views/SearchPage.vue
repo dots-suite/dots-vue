@@ -117,9 +117,7 @@
         >
           <div class="facets-sidebar-header">
           </div>
-          <!-- Remounted on a change of level so its new facets open by default -->
           <SearchFacets
-            :key="granularity || 'resources'"
             class="search-facets"
             :opened-facets="openedFacets"
             :facets="panelFacets"
@@ -140,33 +138,6 @@
         </aside>
       </Transition>
       <div class="page-main">
-        <!-- Level of the results: resources, or one fragment type (granularity).
-             For tests only, to be removed: kept apart from the search band -->
-        <div
-          v-if="granularityOptions.length"
-          class="results-level-bar"
-        >
-          <div class="results-level-field">
-            <label for="search-granularity">Afficher</label>
-            <select
-              id="search-granularity"
-              class="results-level-select"
-              :value="granularity || ''"
-              @change="selectGranularity($event.target.value)"
-            >
-              <option value="">
-                Ressources
-              </option>
-              <option
-                v-for="option in granularityOptions"
-                :key="option.citeType"
-                :value="option.citeType"
-              >
-                {{ option.label }} ({{ option.count }})
-              </option>
-            </select>
-          </div>
-        </div>
         <div class="document-list list-mode">
           <ResourcesList
             :data="tableData"
@@ -179,7 +150,7 @@
             :is-elastic-search="true"
             :total-buckets="search.bucketCount.value"
             :is-with-highlights="searchedWithHits"
-            :is-fragment-list="!!granularity"
+            :is-fragment-list="isFragmentSearch"
             :count-labels="fragmentCountLabels"
             :collection-indexed="search.collectionIndexed.value"
             @sort-change="updateSort"
@@ -198,7 +169,6 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } fr
 import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
-import { walkPath } from '@/composables/useTable'
 
 import { getInvalidQueryMessage } from '@/composables/search-page'
 import ResourcesList from '@/components/ResourcesList.vue'
@@ -280,124 +250,21 @@ export default {
 
     const openedFacets = search.openedFacets
 
-    // Fragment type listed instead of resources (citeType), null for resources
-    const granularity = search.granularity
+    // Search of the collection, as resolved by the settings cascade
+    const searchConfig = computed(() => collConfig.value?.searchConfig || {})
+    const isFragmentSearch = search.isFragmentSearch
 
-    // granularities.<citeType> with granularities.default as the fallback:
-    // label, columns and countLabel of that fragment type
-    const granularityConfig = computed(() => {
-      if (!granularity.value) return null
+    const facetsConfig = computed(() => searchConfig.value.facets || [])
+    const temporalFacetsConfig = computed(() => searchConfig.value.temporalFacets || [])
 
-      const configs = collConfig.value?.searchConfig?.granularities || {}
-      return { ...(configs.default || {}), ...(configs[granularity.value] || {}) }
-    })
-
-    // Merges facet entries by key, each override field replacing the base one
-    function mergeFacetConfigs(baseConfig, overrideConfig) {
-      const byKey = new Map(
-        (baseConfig || []).filter(c => c.key).map(c => [c.key, c])
-      )
-
-      const overrides = (overrideConfig || []).filter(c => c.key)
-
-      overrides.forEach(c => {
-        byKey.set(c.key, { ...(byKey.get(c.key) || {}), ...c })
-      })
-
-      return [...byKey.values()]
-    }
-
-    // At a fragment level, a facet label is never inherited from the resource
-    // level, nor is its `enabled`: a resource exclusion does not hide a facet
-    // there. The label and `enabled` of the granularities entries win, the
-    // order still falls back on the resource level. Resource-declared facets
-    // stay listed.
-    function fragmentFacetConfig(id, resourceConfig) {
-      const granularityConfigs = collConfig.value?.searchConfig?.granularities || {}
-      const ownConfigs = granularityConfigs[granularity.value]?.[id] || []
-      const defaultConfigs = granularityConfigs.default?.[id] || []
-
-      // Resource entries reduced to their order: nothing else is inherited
-      const resourceOrder = new Map(
-        resourceConfig.filter(c => c.key).map(c => [c.key, c.order])
-      )
-
-      return mergeFacetConfigs(
-        mergeFacetConfigs(
-          [...resourceOrder].map(([key, order]) => ({ key, order })),
-          defaultConfigs
-        ),
-        ownConfigs
-      ).map(({ enabled, ...c }) => {
-        const levelEntry = ownConfigs.find(e => e.key === c.key) || defaultConfigs.find(e => e.key === c.key)
-
-        return {
-          ...c,
-          // technical key as the last label resort
-          label: levelEntry?.label ?? c.key,
-          enabled: levelEntry?.enabled ?? true
-        }
-      })
-    }
-
-    const facetsConfig = computed(() => {
-      const resourceConfig = collConfig.value?.searchConfig?.facets || []
-
-      if (!granularity.value) return resourceConfig
-
-      // The value label of the collections facet ('Collections') is not a
-      // fragment-level one
-      return fragmentFacetConfig('facets', resourceConfig)
-        .filter(c => c.key !== 'collections')
-        .concat(resourceConfig.filter(c => c.key === 'collections'))
-    })
-
-    const temporalFacetsConfig = computed(() => {
-      const resourceConfig = collConfig.value?.searchConfig?.temporalFacets || []
-
-      if (!granularity.value) return resourceConfig
-
-      return fragmentFacetConfig('temporalFacets', resourceConfig)
-    })
-
-    const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : str
-
-    // Fragment types of the collection, minus the ones a configuration disables
-    const granularityOptions = computed(() => {
-      const configs = collConfig.value?.searchConfig?.granularities || {}
-
-      return (search.granularities.value || [])
-        .filter(g => g.citeType !== 'default' && configs[g.citeType]?.enabled !== false)
-        .map(g => ({
-          citeType: g.citeType,
-          label: configs[g.citeType]?.label || capitalize(g.citeType),
-          count: g.count
-        }))
-    })
-
-    // Labels of the listed fragments in the results count: the configuration
-    // supplies both forms, since the plural cannot be derived from a citeType
-    // ("indexs"). Unset ones fall back on "résultat(s)", from granularities.default
+    // Count of a fragment search: countLabel names the listed fragments
     const fragmentCountLabels = computed(() => {
-      if (!granularity.value) return null
-
-      const labels = granularityConfig.value?.countLabel || {}
+      const labels = searchConfig.value.countLabel || {}
       return {
-        singular: labels.singular || 'résultat',
-        plural: labels.plural || labels.singular || 'résultats'
+        singular: labels.singular || 'result',
+        plural: labels.plural || labels.singular || 'results'
       }
     })
-
-    function selectGranularity(value) {
-      search.setGranularity(value || null)
-
-      // The store dropped the sort; the inputSort watcher then searches again
-      if (inputSort.value) {
-        inputSort.value = null
-      } else {
-        executeSearches()
-      }
-    }
 
     // Documents found, as the table counts them: in full text with a term,
     // the documents holding hits (buckets), not the hits
@@ -440,8 +307,7 @@ export default {
     // Ids of the temporal facets that are explicitly disabled: declaring an
     // entry customises it (label, order) or excludes it. Same declarative
     // rule as disabledFacetIds below; a facet missing from the config is
-    // still displayed, labelled by the backend at the resource level and by
-    // its technical key at a fragment level (see `label` in visibleTemporal).
+    // still displayed, labelled by the backend.
     const disabledTemporalFacetIds = computed(() => {
       const config = temporalFacetsConfig.value
 
@@ -482,9 +348,7 @@ export default {
 
           return {
             ...facet,
-            // fragment level: declared label or technical key, never the
-            // backend label; resource level: as before
-            label: granularity.value ? c?.label || facet.key : c?.label || facet.label,
+            label: c?.label || facet.label,
             // explicit order otherwise backend order
             order: c?.order ?? null,
             // where the facet sits among the temporal facets of the backend
@@ -520,8 +384,7 @@ export default {
 
         result.push({
           key: 'collections',
-          // a collections label is not a fragment-level one: keep the default
-          label: granularity.value ? 'Collections' : collectionsConfig?.label || 'Collections',
+          label: collectionsConfig?.label || 'Collections',
           values: collections,
           order: 0
         })
@@ -541,8 +404,7 @@ export default {
 
           result.push({
             key: id,
-            // never the backend label at a fragment level: the technical key
-            label: config?.label || (granularity.value ? id : DEFAULT_FACET_LABELS[id] || id),
+            label: config?.label || DEFAULT_FACET_LABELS[id] || id,
             values,
             order:
               config?.order ?? DEFAULT_FACET_ORDERS[id] ?? FIRST_TERMS_FACET_ORDER + result.length
@@ -696,7 +558,7 @@ export default {
 
       // Fragment case: one row per fragment, its own metadata at the top so
       // that column keys (`dublinCore.date`) resolve as for a resource
-      if (granularity.value && Array.isArray(result)) {
+      if (isFragmentSearch.value && Array.isArray(result)) {
         const withSnippets = !!(isFulltextSearch.value && inputTerm.value.trim())
 
         return result.map(fragment => {
@@ -763,46 +625,17 @@ export default {
         sortKey: col.sortKey
       }))
 
+    // columns: an array, or "listSection" for the columns of the home page list
     const columns = computed(() => {
-      if (granularity.value) {
-        const configs = collConfig.value?.searchConfig?.granularities || {}
-        const ownCols = configs[granularity.value]?.columns
+      const configCols = searchConfig.value.columns === 'listSection'
+        ? props.collectionConfig?.homePageSettings?.listSection?.columns
+        : searchConfig.value.columns
 
-        // Un résultat de fragment appartient à une ressource : son document
-        // contenant est affiché en tête de ligne, sauf si la conf du niveau
-        // le déclare déjà.
-        const withParentDocumentColumn = cols =>
-          cols.some(col => col.key === 'resource')
-            ? cols
-            : [{ key: 'resource', label: 'Document parent', type: 'text', width: '3fr', sortable: false }, ...cols]
-
-        if (ownCols?.length > 0) {
-          return withParentDocumentColumn(toColumns(ownCols))
-        }
-
-        // Shared defaults (granularities.default): a column only when the results can fill it
-        const facets = search.facets.value?.available || {}
-        const temporalKeys = (search.initialTemporal.value || []).map(f => f.key)
-        const hasValue = value => (Array.isArray(value) ? value.some(hasValue) : value != null && value !== '')
-
-        return withParentDocumentColumn(toColumns((configs.default?.columns || []).filter(col =>
-          facets[col.key]?.length ||
-          temporalKeys.includes(col.key) ||
-          tableData.value.some(row => hasValue(walkPath(row, col.key)))
-        )))
-      }
-
-      const configCols =
-        props.collectionConfig?.homePageSettings?.listSection?.columns
-
-      if (configCols?.length > 0) {
+      if (Array.isArray(configCols) && configCols.length > 0) {
         return toColumns(configCols)
       }
 
-      // Minimal fallback on title only as in default.conf.json (namespaced metadata key)
-      return [
-        { key: 'dublinCore.title', label: 'Title', type: 'text' }
-      ]
+      return [{ key: 'dublinCore.title', label: 'Title', type: 'text' }]
     })
 
     const layout = inject('variable-layout')
@@ -1070,6 +903,15 @@ export default {
       { immediate: true }
     )
 
+    // Fragment search restrictions, in the store before the first search
+    watch(
+      () => searchConfig.value.target === 'fragment'
+        ? { citeTypes: searchConfig.value.include?.citeTypes || [], levels: searchConfig.value.include?.levels || [] }
+        : null,
+      scope => search.setFragmentScope(scope),
+      { immediate: true }
+    )
+
     // immediate: true => the list lands in the store before the initial
     // executeSearches() below, hence from the very first request onwards.
     watch(
@@ -1247,54 +1089,13 @@ export default {
       sidebarOpen,
       sidebarEl,
       toggleSidebar,
-      granularity,
-      granularityOptions,
+      isFragmentSearch,
       fragmentCountLabels,
-      selectGranularity,
     }
   }
 }
 </script>
 <style scoped>
-/* Level of the results (granularity) */
-.results-level-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 32px;
-  margin-top: 24px;
-  font-family: var(--font-primary), sans-serif;
-  font-size: 15px;
-  color: #4a4a4a;
-}
-
-.results-level-field {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.results-level-field label {
-  font-weight: 500;
-  color: #4a4a4a;
-}
-
-.results-level-select {
-  min-height: 40px;
-  padding: 6px 32px 6px 12px;
-  border: 1px solid var(--fill-color);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--fill-color);
-  font-family: inherit;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.results-level-bar + .document-list {
-  margin-top: 16px;
-}
-
 .document-list {
   display: flex;
   justify-content: center;

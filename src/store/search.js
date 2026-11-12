@@ -52,10 +52,8 @@ function createEmptySearchState() {
 
     noHighlight: false,
 
-    // Fragment type (citeType) listed instead of resources, null for resources
-    granularity: null,
-    // Fragment types of the collection with their counts, from the API
-    granularities: [],
+    // Fragment search restrictions ({ citeTypes, levels }), null for a resource search
+    fragmentScope: null,
 
     // Default search mode: full text
     isFulltextSearch: true,
@@ -325,13 +323,13 @@ export default {
 
     // Facets, dates and sorts differ between resources and fragments: only
     // the perimeter (collections, resources) survives a change of level
-    setSearchGranularity(state, v) {
+    setSearchFragmentScope(state, v) {
       const s = getProject(state)
       const next = v || null
 
-      if (!s || s.granularity === next) return
+      if (!s || JSON.stringify(s.fragmentScope) === JSON.stringify(next)) return
 
-      s.granularity = next
+      s.fragmentScope = next
 
       s.facets.selected = Object.fromEntries(
         Object.entries(s.facets.selected)
@@ -387,7 +385,6 @@ export default {
       }
 
       s.highlightPatterns = payload.highlight_patterns || []
-      s.granularities = payload.granularities || []
       s.temporal = payload.temporal || []
 
       // On ne mémorise les bornes initiales qu'une seule fois

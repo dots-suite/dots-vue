@@ -435,7 +435,7 @@ import Pagination from '@/components/Pagination.vue'
 
 // Neutral wording when neither the configuration nor the caller names the
 // listed fragments, so that an over-naive plural ("indexs") is never shown
-const DEFAULT_COUNT_LABELS = { singular: 'résultat', plural: 'résultats' }
+const DEFAULT_COUNT_LABELS = { singular: 'result', plural: 'results' }
 
 
 export default {
@@ -457,7 +457,7 @@ name: 'ResourcesList',
     totalBuckets: { type: Number },
     isTableLoading: Boolean,
     isWithHighlights: Boolean,
-    // Fragment results (granularity): one row per fragment, linked to its passage
+    // Fragment search results: one row per fragment, linked to its passage
     isFragmentList: Boolean,
     // Name of the listed fragments in the results count, singular and plural
     // (e.g. "index" / "index"): an over-naive plural ("indexs") is never derived
