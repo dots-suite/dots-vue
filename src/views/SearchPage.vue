@@ -185,8 +185,8 @@ import SearchFacets from '@/components/SearchFacets.vue'
 import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
 
 // Facets that do not come from the metadata: resources narrows the perimeter like collections
-const DEFAULT_FACET_LABELS = { resources: 'Ressources', citeTypes: 'Types', levels: 'Niveaux' }
-const DEFAULT_FACET_ORDERS = { resources: 1, citeTypes: 2, levels: 3 }
+const DEFAULT_FACET_LABELS = { resources: 'Ressources' }
+const DEFAULT_FACET_ORDERS = { resources: 1, citeType: 2, level: 3 }
 // Rank of the first terms facet the config does not order: the rest follow in
 // the backend order, after the ordered ones
 const FIRST_TERMS_FACET_ORDER = 1000
