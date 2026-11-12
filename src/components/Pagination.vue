@@ -330,6 +330,11 @@ function onBlur() {
     justify-content: center;
 
     & > span.total-pages {
+      /* A button wide at least, wider when the number needs it */
+      width: auto;
+      min-width: var(--button-size);
+      padding: 0 6px;
+      box-sizing: border-box;
       background-color: var(--default-bg-color);
       border-radius: var(--button-border-radius);
       font-family: inherit;
