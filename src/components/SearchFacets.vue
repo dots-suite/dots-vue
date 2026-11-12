@@ -541,41 +541,22 @@ function setFacetFilter(facetId, value) {
 }
 
 const orderedFacets = computed(()=>{
+    const temporalByKey = new Map(props.temporalFacets.map(f => [f.key, f]))
+    const listed = new Set(props.facets.map(f => f.key))
 
-    const result = []
+    // A key listed in both props is a date facet, ranked where `facets` puts it
+    const result = props.facets.map(f => {
+        const temporal = temporalByKey.get(f.key)
 
-    // =====================
-    // Facettes temporelles
-    // =====================
-
-    props.temporalFacets.forEach(f=>{
-
-        result.push({
-            id: f.key,
-            label: f.label,
-            type: 'temporal',
-            temporal: f,
-            order: f.order ?? 999
-        })
-
+        return temporal
+            ? { id: f.key, label: temporal.label, type: 'temporal', temporal, order: f.order ?? temporal.order ?? 999 }
+            : { id: f.key, label: f.label, values: f.values, type: 'terms', facet: f, order: f.order ?? 100 }
     })
 
-    // =====================
-    // Facettes terms
-    // =====================
+    props.temporalFacets
+        .filter(f => !listed.has(f.key))
+        .forEach(f => result.push({ id: f.key, label: f.label, type: 'temporal', temporal: f, order: f.order ?? 999 }))
 
-    props.facets.forEach(f=>{
-
-        result.push({
-            id: f.key,
-            label: f.label,
-            values: f.values,
-            type: 'terms',
-            facet: f,
-            order: f.order ?? 100
-        })
-
-    })
     return result.sort(
         (a,b)=>a.order-b.order
     )
