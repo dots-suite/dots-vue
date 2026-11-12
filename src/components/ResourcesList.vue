@@ -717,10 +717,13 @@ name: 'ResourcesList',
         return chevronWidth
       }
 
-      // A configured width is a weight relative to the other columns: columns
-      // without one get the average weight, so that a single `2fr` column does
+      // A `fr` width or a bare number is a weight; any other CSS length (px, rem, %) is kept as is
+      const isWeight = width => /^\s*(\d+\.?\d*|\.\d+)\s*(fr)?\s*$/.test(String(width ?? ''))
+
+      // Columns without a width get the average weight, so that a single `2fr` column does
       // not leave every other column at `1fr` clamped to a narrow one third
       const declaredWeights = cols
+        .filter(col => isWeight(col.width))
         .map(col => parseFloat(col.width))
         .filter(weight => weight > 0)
 
@@ -729,6 +732,7 @@ name: 'ResourcesList',
         : 1
 
       const widths = cols.map(col => {
+        if (col.width && !isWeight(col.width)) return String(col.width).trim()
         const weight = parseFloat(col.width)
         return `${weight > 0 ? weight : defaultWeight}fr`
       })
