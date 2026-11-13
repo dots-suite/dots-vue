@@ -503,12 +503,13 @@ nav span.level-item:not(:last-child)::after {
   font-family: var(--font-primary),sans-serif;
 
   & > span.level-item {
-    align-items: center;
+    /* Collection title sits on the app title's baseline, not centred on it */
+    align-items: baseline;
     white-space: nowrap;
   }
 
   & > span > a {
-    font-size: 20px;
+    font-size: 34px;
     font-weight: 700;
     line-height: 1;
     text-transform: capitalize;
@@ -522,7 +523,7 @@ nav span.level-item:not(:last-child)::after {
       position: relative;
       margin-left: 30px;
       padding-left: 30px;
-      font-size: 20px;
+      font-size: 24px;
       font-weight: 500;
       line-height: 1;
 
@@ -563,7 +564,7 @@ nav span.level-item:not(:last-child)::after {
 }
 /* Lighter square behind the magnifier on hover only (otherwise the
    navbar's background): the collection colour with 8% white, whatever
-   --fill-color the settings give. Drawn around the 30px icon so the layout
+   --fill-color the settings give. Drawn around the icon so the layout
    does not move. */
 .search-link::before {
   content: '';
@@ -585,8 +586,9 @@ nav span.level-item:not(:last-child)::after {
 }
 .search-icon {
   display: block;
-  width: 30px;
-  height: 30px;
+  /* As big as the API button next to it: at 30px some users never noticed it */
+  width: 40px;
+  height: 40px;
   background-color: currentColor;
   -webkit-mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
   mask: url(../assets/images/icone-loupe.svg) center / contain no-repeat;
@@ -710,6 +712,11 @@ ul.submenu a:hover {
       font-size: 18px;
       line-height: 1.2;
 
+      /* App title enlarged on phones too (24px), the collection title stays at 18px */
+      &:first-child {
+        font-size: 24px;
+      }
+
       &:not(:first-child) {
         display: block !important;
       }
@@ -740,6 +747,24 @@ ul.submenu a:hover {
   .search-link {
     margin-left: 10px;
     margin-right: calc(30px + var(--mobile-margin));
+  }
+
+  /* Opened burger menu: tight rows instead of the bar items' 20px padding */
+  nav.level.is-opened .level-right {
+    padding: 6px 0;
+  }
+  nav.level.is-opened .level-right .level-item {
+    padding: 6px var(--mobile-margin);
+  }
+  /* The menu links inherit a 52px line height: rows as tall as their content */
+  nav.level.is-opened .level-right .level-item > a {
+    line-height: 1;
+  }
+
+  /* Phones keep the original 30px magnifier, matching the burger */
+  .search-icon {
+    width: 30px;
+    height: 30px;
   }
 
   .level-left {
