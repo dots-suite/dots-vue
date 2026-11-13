@@ -193,8 +193,12 @@ export default {
         // if (response.member.every(el => el.citeType === 'Resource')) {
         //   displayOpt.value = 'toc'
         // }
-        componentTOC.value = response.member
 
+        // The currentCollection watcher may have filled the TOC during the await, with the
+        // sorted, filtered and enriched members from App.vue: do not overwrite them with the raw API ones
+        if (componentTOC.value.length === 0) {
+          componentTOC.value = response.member
+        }
       }
       expandedById.value[collId] = !expandedById.value[collId]
       //state.isTreeOpened = !state.isTreeOpened
