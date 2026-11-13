@@ -52,7 +52,14 @@
                   <span>{{ item.dublinCore.date }}</span>
                 </div>
                 <div class="collection-metadata-title">
-                  {{ item.title }}
+                  <CollectionIcon
+                    class="card-title-icon"
+                    fg-color="#FFFFFF"
+                    bg-color="transparent"
+                    :size="30"
+                    :radius="0"
+                  />
+                  <span>{{ item.title }}</span>
                 </div>
               </div>
             </div>
@@ -97,33 +104,43 @@
       </template>
       <!-- ELSE resource is a resource of type (@type / citeType) resource  -->
       <template v-else>
-        <div class="card-header">
-          <div class="document-folder">
+        <!-- Same left card as a collection, the whole card opens the document; no TOC on the right -->
+        <div class="dots-ui collection-wrapper resource-card">
+          <div class="card-header">
             <router-link
-              class="card-header-first-line"
+              class="card-link clickable"
               :to="!isDocProjectIdInc ? { name: 'Document', params: { id: item.identifier }} : { name: 'Document', params: { collId: item.projectIdentifier ? item.projectIdentifier : item.identifier, id: item.identifier } }"
             >
-              <div class="collection-metadata is-flex-direction-column">
-                <span class="collection-metadata-title">
-                  {{ item.title }}
-                </span>
-                <div class="is-flex is-flex-direction-column">
-                  <span>
-                    {{ Array.isArray(item.dublinCore.creator)
-                      ? item.dublinCore.creator.join(', ')
-                      : item.dublinCore.creator }}
+              <div class="collection-metadata">
+                <div class="collection-metadata-title has-link-icon">
+                  <span class="card-title-text">
+                    <ResourceIcon
+                      class="card-title-icon"
+                      fg-color="#FFFFFF"
+                      bg-color="transparent"
+                      :size="30"
+                      :radius="0"
+                    />
+                    <span>{{ item.title }}</span>
                   </span>
-                  <span>
-                    {{ item.dublinCore.date }}
-                  </span><!-- v-if="c.date" -->
-                </div>
-                <div class="collection-description">
-                  <span>
-                    {{ item.description }}
-                  </span><!-- v-if="c.date" -->
+                  <!-- Marks the card as a live link to the document: own column on the right, facing the first line -->
+                  <ResourceLinkIcon
+                    class="card-title-icon card-title-link-icon"
+                    fg-color="#FFFFFF"
+                    bg-color="transparent"
+                    :size="30"
+                    :radius="0"
+                  />
                 </div>
               </div>
-              <!-- no image planned at resource level for now -->
+              <div
+                v-if="item.description"
+                class="collection-description"
+              >
+                <span class="collection-description-text">
+                  {{ item.description }}
+                </span>
+              </div>
             </router-link>
           </div>
         </div>
@@ -150,6 +167,9 @@ import store from '@/store'
 import { router } from '@/router'
 
 import CollectionTOC from '@/components/CollectionTOC.vue'
+import CollectionIcon from '@/assets/images/CollectionIcon.vue'
+import ResourceIcon from '@/assets/images/ResourceIcon.vue'
+import ResourceLinkIcon from '@/assets/images/ResourceLinkIcon.vue'
 import Pagination from '@/components/Pagination.vue'
 import { usePagination } from '@/composables/usePagination'
 import { getSimpleObject } from '@/composables/utils.js'
@@ -162,7 +182,7 @@ const collator = new Intl.Collator('fr', {
 export default {
   name: 'CollectionCardWithToc',
 
-  components: { Pagination, CollectionTOC },
+  components: { Pagination, CollectionTOC, CollectionIcon, ResourceIcon, ResourceLinkIcon },
 
   props: {
     isDocProjectIdIncluded: {
@@ -380,26 +400,22 @@ export default {
 
       if (!ds.length) return '0 ressources'
 
-      const allCollections = ds.every(
-        item => item.type === 'Collection' || item['@type'] === 'Collection'
-      )
+      const plural = (n, one, many) => `${n} ${n <= 1 ? one : many}`
 
-      if (display === 'card' || display === 'mixed') {
-        if (curr?.identifier === rootId) {
-          const label = ds.length <= 1 ? 'projet' : 'projets'
-          return `${ds.length} ${label}`
-        } else if (allCollections) {
-          const label = ds.length <= 1 ? 'collection' : 'collections'
-          return `${ds.length} ${label}`
-        }
+      if ((display === 'card' || display === 'mixed') && curr?.identifier === rootId) {
+        return plural(ds.length, 'projet', 'projets')
       }
 
-      if (!allCollections) {
-        const label = ds.length <= 1 ? 'ressource' : 'ressources'
-        return `${ds.length} ${label}`
-      }
+      // A project can hold collections and resources side by side: count each kind
+      const collections = ds.filter(
+        item => item.type === 'Collection' || item['@type'] === 'Collection' || item.citeType === 'Collection'
+      ).length
+      const resources = ds.length - collections
 
-      return '' // fallback
+      return [
+        collections ? plural(collections, 'collection', 'collections') : '',
+        resources ? plural(resources, 'ressource', 'ressources') : ''
+      ].filter(Boolean).join(', ')
     })
 
     // TOC ACTIONS AND NAVIGATION
@@ -609,6 +625,45 @@ button.toc-toggle {
   padding: 30px 45px 45px 30px;
   background: var(--fill-color) !important;
   box-shadow: none;
+}
+
+/* A resource card has no TOC to join on its right: round every corner */
+.mixed-mode .collection-wrapper.resource-card {
+  border-radius: 30px;
+}
+
+/* Collection / resource icon inline before the title: the next lines wrap under it, not indented */
+.mixed-mode .card-title-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  margin-right: 10px;
+  vertical-align: -5px;
+}
+
+/* In a resource card the description sits inside the link, so .card-link + .collection-description no longer applies */
+.mixed-mode .resource-card .card-link .collection-description {
+  margin-top: 20px;
+}
+
+/* Title text and link icon side by side: the icon keeps its own right column, facing the first line */
+.mixed-mode .card-header .collection-metadata .collection-metadata-title.has-link-icon {
+  display: flex;
+  align-items: flex-start;
+}
+
+.mixed-mode .card-title-link-icon {
+  margin-right: 0;
+  margin-left: auto;
+  margin-top: 2px;
+  padding-left: 10px;
+  box-sizing: content-box;
+  flex-shrink: 0;
+}
+
+/* CollectionIcon greys itself under any .disabled ancestor, and a non-clickable card-link is .disabled */
+.mixed-mode .card-link.disabled .card-title-icon {
+  background-color: transparent;
 }
 
 .mixed-mode .card-header .collection-metadata .collection-metadata-title {
