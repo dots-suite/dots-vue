@@ -23,7 +23,9 @@ export default createStore({
     resourceId: undefined,
     currentItem: {},
     TOC: [],
-    arianeDocument: undefined
+    arianeDocument: undefined,
+    // Home page filter picked in the about text ([data-filter] items), a key of homePageSettings.filters
+    homeFilter: null
   },
 
   mutations: {
@@ -53,6 +55,10 @@ export default createStore({
 
     setArianeDocument(state, list) {
       state.arianeDocument = list
+    },
+
+    setHomeFilter(state, v) {
+      state.homeFilter = v || null
     }
   },
   plugins: [searchProjectSync]

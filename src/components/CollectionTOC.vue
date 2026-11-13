@@ -15,10 +15,21 @@
   <!-- RESOURCE LIST AS CARDS (applicable conf (cascade): homePageSettings.listSection.displayMode = 'card') -->
   <!-- or RESOURCE LIST AS CARDS AND TABLE OF CONTENT (applicable conf (cascade): homePageSettings.listSection.displayMode = 'mixed') -->
   <div
-    v-if="paginated.length && (displayOpt === 'card' || (displayOpt === 'mixed' && displayMode === 'mixed'))"
+    v-if="(paginated.length || showFiltersCard) && (displayOpt === 'card' || (displayOpt === 'mixed' && displayMode === 'mixed'))"
     class="resources-grid"
     :class="displayMode !== 'toc' ? `${displayMode}-mode` : 'toc-mode'"
   >
+    <!-- Filters card (homePageSettings.filtersCard): first cell of every page -->
+    <div
+      v-if="showFiltersCard"
+      class="document-card filters-card-cell"
+    >
+      <HomeFiltersCard
+        :filters="homeFilters"
+        :title="filtersCardConf.title"
+        :all-label="filtersCardConf.allLabel"
+      />
+    </div>
     <div
       v-for="item in paginated"
       :key="item.identifier"
@@ -334,6 +345,7 @@ import TocArrows from '@/assets/images/TocArrows.vue'
 import CollectionIcon from '@/assets/images/CollectionIcon.vue'
 import ResourceIcon from '@/assets/images/ResourceIcon.vue'
 import Pagination from '@/components/Pagination.vue'
+import HomeFiltersCard from '@/components/HomeFiltersCard.vue'
 
 const collator = new Intl.Collator('fr', {
   numeric: true,
@@ -342,7 +354,7 @@ const collator = new Intl.Collator('fr', {
 
 export default {
   name: 'CollectionTOC',
-  components: { ResourceIcon, CollectionIcon, TocArrows, Pagination },
+  components: { ResourceIcon, CollectionIcon, TocArrows, Pagination, HomeFiltersCard },
   props: {
     isDocProjectIdIncluded: {
       type: Boolean,
@@ -695,10 +707,28 @@ export default {
       }
     };
 
-    // PAGINATION
-    const pageSize = computed(() =>
-      props.collectionConfig?.homePageSettings?.listSection?.cardCollectionPerPage
+    // HOME FILTERS CARD: top level card display, with homePageSettings.filters and .filtersCard
+    const homeFilters = computed(() => {
+      const filters = props.collectionConfig?.homePageSettings?.filters
+      return filters && typeof filters === 'object' && !Array.isArray(filters) ? filters : {}
+    })
+    const filtersCardConf = computed(() => {
+      const conf = props.collectionConfig?.homePageSettings?.filtersCard
+      return conf && typeof conf === 'object' ? conf : {}
+    })
+    const showFiltersCard = computed(() =>
+      lvl.value === 1 &&
+      displayOpt.value === 'card' &&
+      !!props.collectionConfig?.homePageSettings?.filtersCard &&
+      Object.values(homeFilters.value).some(Array.isArray)
     )
+
+    // PAGINATION
+    // The filters card takes the first cell of each page: one collection card less per page
+    const pageSize = computed(() => {
+      const size = props.collectionConfig?.homePageSettings?.listSection?.cardCollectionPerPage
+      return showFiltersCard.value && size > 1 ? size - 1 : size
+    })
     const currentPage = ref(1)
 
     const pagination = usePagination(componentTOC, pageSize, currentPage)
@@ -985,6 +1015,8 @@ export default {
         }
 
         componentTOC.value.splice(0, componentTOC.value.length, ...result)
+        // A new list (e.g. a home filter) may have fewer pages than the one shown
+        currentPage.value = 1
         if ((!currCollection.value?.parent?.length && displayOpt.value === 'mixed' && displayMode.value !== 'toc') || displayOpt.value === 'mixed' && displayMode.value === 'toc') {
           componentTOC.value.forEach(c => c.forcedDisplayOpt = 'toc')
         }
@@ -1019,6 +1051,9 @@ export default {
       displayMode,
       currCollection,
       currentPage,
+      showFiltersCard,
+      homeFilters,
+      filtersCardConf,
       totalPages,
       paginated,
       onPaginationUpdate,
@@ -1347,6 +1382,11 @@ button.toc-toggle {
   min-height: 580px;
   height: auto;
   border-bottom-right-radius: 18px;
+}
+
+/* The filters card sizes to its content when cards stack (phones); in the grid it stretches to its row */
+.card-mode .document-card.filters-card-cell {
+  min-height: 0;
 }
 
 .card-mode .document-card.expanded {

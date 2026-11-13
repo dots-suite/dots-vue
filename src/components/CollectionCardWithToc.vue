@@ -511,6 +511,8 @@ export default {
         }
 
         componentTOC.value.splice(0, componentTOC.value.length, ...result)
+        // A new list (e.g. a home filter) may have fewer pages than the one shown
+        currentPage.value = 1
         if ((!currCollection.value?.parent?.length && displayOpt.value === 'mixed' && displayMode.value !== 'toc') || displayOpt.value === 'mixed' && displayMode.value === 'toc') {
           componentTOC.value.forEach(c => c.forcedDisplayOpt = 'toc')
         }
