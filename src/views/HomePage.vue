@@ -42,7 +42,7 @@
           :root-collection-identifier="rootCollectionId"
           :application-config="appConfig"
           :collection-config="collConfig"
-          :toc="componentTOC"
+          :toc="filteredTOC"
           :level="1"
         />
         <CollectionCardWithToc
@@ -54,7 +54,7 @@
           :root-collection-identifier="rootCollectionId"
           :application-config="appConfig"
           :collection-config="collConfig"
-          :toc="componentTOC"
+          :toc="filteredTOC"
           :level="1"
         />
 
@@ -85,6 +85,7 @@ import CollectionTOC from '@/components/CollectionTOC.vue'
 import { getSimpleObject } from '@/composables/utils.js'
 import CollectionCardWithToc from '@/components/CollectionCardWithToc.vue'
 import CollectionHeader from '@/components/CollectionHeader.vue'
+import store from '@/store'
 
 const collator = new Intl.Collator('fr', {
   numeric: true,
@@ -395,8 +396,17 @@ export default {
       },{ immediate: true }
     )
 
+    // HOME FILTERS: the about text sets store.homeFilter, a key of homePageSettings.filters
+    // listing the identifiers to keep. No (known) filter: the list itself, unchanged.
+    const filteredTOC = computed(() => {
+      const ids = collConfig.value?.homePageSettings?.filters?.[store.state.homeFilter]
+      if (!Array.isArray(ids)) return componentTOC.value
+      return componentTOC.value.filter(item => ids.includes(item.identifier ?? item['@id']))
+    })
+
     onBeforeUnmount(() => {
       currentRunId++
+      store.commit('setHomeFilter', null)
     })
 
     return {
@@ -410,6 +420,7 @@ export default {
       collectionId,
       currCollection,
       componentTOC,
+      filteredTOC,
       displayOpt,
       isAboutOpened,
       columns,

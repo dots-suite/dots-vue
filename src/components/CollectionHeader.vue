@@ -94,6 +94,7 @@
           <div
             v-if="customDescription"
             id="home-article"
+            :ref="setFiltersRoot"
             class="article"
           >
             <component
@@ -148,6 +149,7 @@
 <script>
 import { computed, ref, shallowRef, defineAsyncComponent, watch, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
+import store from '@/store'
 import DirectionalChevron from '@/assets/images/DirectionalChevron.vue'
 
 export default {
@@ -190,6 +192,71 @@ export default {
     }, { immediate: true })
     const onAboutLeft = () => emit('about-opened', false)
     onBeforeUnmount(() => emit('about-opened', false))
+
+    // HOME FILTERS
+    // The about text (settings, text only) marks filter items with data-filter="<key>",
+    // a key of homePageSettings.filters. Here they become toggle buttons setting the
+    // store homeFilter, which HomePage applies to its list.
+    const homeFilters = computed(() => {
+      const filters = collConfig.value?.homePageSettings?.filters
+      return filters && typeof filters === 'object' && !Array.isArray(filters) ? filters : {}
+    })
+    const activeHomeFilter = computed(() => store.state.homeFilter)
+
+    let filtersRoot = null
+    let filtersObserver = null
+
+    const syncFilterItems = () => {
+      if (!filtersRoot) return
+      filtersRoot.querySelectorAll('[data-filter]').forEach(item => {
+        const key = item.dataset.filter
+        if (!Array.isArray(homeFilters.value[key])) return
+        const active = key === activeHomeFilter.value
+        item.classList.add('home-filter')
+        item.classList.toggle('is-active', active)
+        if (item.getAttribute('role') !== 'button') item.setAttribute('role', 'button')
+        if (item.getAttribute('tabindex') !== '0') item.setAttribute('tabindex', '0')
+        if (item.getAttribute('aria-pressed') !== String(active)) item.setAttribute('aria-pressed', String(active))
+      })
+    }
+
+    const toggleHomeFilter = (event) => {
+      const item = event.target.closest?.('[data-filter]')
+      if (!item || !filtersRoot?.contains(item)) return
+      const key = item.dataset.filter
+      if (!Array.isArray(homeFilters.value[key])) return
+      if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      store.commit('setHomeFilter', activeHomeFilter.value === key ? null : key)
+    }
+
+    // Function ref: the about panel comes and goes (v-if), and its component loads async
+    const setFiltersRoot = (el) => {
+      if (el === filtersRoot) return
+      if (filtersRoot) {
+        filtersRoot.removeEventListener('click', toggleHomeFilter)
+        filtersRoot.removeEventListener('keydown', toggleHomeFilter)
+      }
+      filtersObserver?.disconnect()
+      filtersObserver = null
+      filtersRoot = el
+      if (!el) return
+      el.addEventListener('click', toggleHomeFilter)
+      el.addEventListener('keydown', toggleHomeFilter)
+      filtersObserver = new MutationObserver(syncFilterItems)
+      filtersObserver.observe(el, { childList: true, subtree: true })
+      syncFilterItems()
+    }
+
+    watch([activeHomeFilter, homeFilters], syncFilterItems)
+
+    // Changing collection clears the filter. Closing the about too, unless the filters
+    // card (homePageSettings.filtersCard) keeps showing it on the home page
+    watch([isAboutOpened, collectionId], ([opened], [, previousId]) => {
+      const shownElsewhere = !!collConfig.value?.homePageSettings?.filtersCard
+      if (collectionId.value !== previousId || (!opened && !shownElsewhere)) store.commit('setHomeFilter', null)
+    })
+    onBeforeUnmount(() => setFiltersRoot(null))
 
     const appRootUrl = ref(`${import.meta.env.VITE_APP_APP_ROOT_URL}`)
     const normalisedBaseUrl = (baseURL) => {
@@ -466,6 +533,7 @@ export default {
 )
 
     return {
+      setFiltersRoot,
       appRootUrl,
       normalisedBaseUrl,
       currCollection,
@@ -809,5 +877,23 @@ export default {
     padding: 0 var(--mobile-margin);
   }
 
+}
+
+/* About text items filtering the home list (homePageSettings.filters, see setFiltersRoot) */
+#home-article :deep(.home-filter) {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s ease, color 0.2s ease;
+}
+#home-article :deep(.home-filter:hover),
+#home-article :deep(.home-filter:focus-visible) {
+  text-decoration-color: currentColor;
+}
+#home-article :deep(.home-filter.is-active) {
+  color: var(--fill-color);
+  font-weight: 600;
+  text-decoration-color: currentColor;
 }
 </style>
