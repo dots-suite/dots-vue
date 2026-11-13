@@ -72,6 +72,19 @@ body {
         margin: 10px 0 10px 10px;
     }
 
+    /* About texts (home about panel, About page): lists keep their default markers */
+    :is(.collection-about, .about-page .content) ul {
+        list-style: disc outside;
+        padding-left: 1.5em;
+    }
+    :is(.collection-about, .about-page .content) ul ul {
+        list-style-type: circle;
+    }
+    :is(.collection-about, .about-page .content) ol {
+        list-style: decimal outside;
+        padding-left: 1.5em;
+    }
+
     a {
         color: #485fc7;
         cursor: pointer;
