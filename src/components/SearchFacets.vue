@@ -622,14 +622,14 @@ const labelCollator = new Intl.Collator('fr', { sensitivity: 'base' })
 
 const byLabel = (a, b) => labelCollator.compare(a.label || a.value || '', b.label || b.value || '')
 const byCount = (a, b) => (b.count ?? 0) - (a.count ?? 0)
-// Values without a path_order (metadata facets) go last
-const byPathOrder = (a, b) => (a.path_order ?? '\uffff') < (b.path_order ?? '\uffff') ? -1 : (a.path_order ?? '\uffff') > (b.path_order ?? '\uffff') ? 1 : 0
+// Values without a corpus_order (metadata facets) go last
+const byCorpusOrder = (a, b) => (a.corpus_order ?? '\uffff') < (b.corpus_order ?? '\uffff') ? -1 : (a.corpus_order ?? '\uffff') > (b.corpus_order ?? '\uffff') ? 1 : 0
 
-// Facet sort declared in searchConfig.facets: "label" (default), "count" or "path_order"; "-" reverses it
+// Facet sort declared in searchConfig.facets: "label" (default), "count" or "corpus_order"; "-" reverses it
 const FACET_SORTS = {
-    label: [byLabel, byPathOrder, byCount],
+    label: [byLabel, byCorpusOrder, byCount],
     count: [byCount, byLabel],
-    path_order: [byPathOrder, byLabel]
+    corpus_order: [byCorpusOrder, byLabel]
 }
 
 function facetValueComparator(sort, facetId) {
