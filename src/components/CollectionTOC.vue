@@ -451,8 +451,13 @@ export default {
     // TOC DATA
     const componentTOC = ref([...props.toc])
 
+    const lvl = ref(props.level)
+
+    // Only the first level swaps a lone resource for the open button; deeper levels list it
     const singleResource = computed(() =>
-      componentTOC.value.length === 1 && (componentTOC.value[0].type === 'Resource' || componentTOC.value[0]['@type'] === 'Resource')
+      lvl.value < 2 &&
+      componentTOC.value.length === 1 &&
+      (componentTOC.value[0].type === 'Resource' || componentTOC.value[0]['@type'] === 'Resource')
         ? componentTOC.value[0]
         : null
     )
@@ -576,8 +581,6 @@ export default {
     }
 
     // REACTIVE TOC
-    const lvl = ref(props.level)
-
     const expandedById = ref(
       displayOpt.value === 'toc'
         ? (

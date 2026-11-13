@@ -37,6 +37,17 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['vue']
     },
+    build: {
+      rollupOptions: {
+        onwarn (warning, warn) {
+          // MUI (pulled in by Mirador 4) marks its modules "use client", a React
+          // Server Components directive with no meaning in a client bundle:
+          // Rollup drops it and would warn once per module
+          if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('"use client"')) return
+          warn(warning)
+        }
+      }
+    },
     server: {
       fs: {
         // The custom settings live outside the project: let the dev server

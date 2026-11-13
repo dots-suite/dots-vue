@@ -196,8 +196,9 @@ export default {
       return baseURL.replace(/\/+$/, '') + '/'
     }
 
-    const hasNonEmptyObject = arr => Array.isArray(arr) && arr.some(obj => obj && Object.keys(obj).length > 0)
-    const hasAbout = computed(() => hasNonEmptyObject(props.collectionConfig.aboutPageSettings))
+    // An about tab exists when an entry names a component, as in AboutPage getTabs
+    const hasAboutTab = arr => Array.isArray(arr) && arr.some(tab => tab && tab.compName)
+    const hasAbout = computed(() => hasAboutTab(props.collectionConfig.aboutPageSettings))
 
     // The opened about spans wider on the search page
     const route = useRoute()
