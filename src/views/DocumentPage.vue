@@ -320,10 +320,12 @@
         class="controls-list"
         :class="isControlsOpened ? 'is-opened' : ''"
       >
-        <li v-if="manifestIsAvailable" >
+        <li v-if="manifestStatus !== 'none'" >
           <button
             type="button"
             class="dots-button text-btn"
+            :class="{ disabled: !manifestIsAvailable }"
+            :disabled="!manifestIsAvailable"
             aria-label="Texte seul"
             @click="changeViewMode('text-mode')"
           >
@@ -335,18 +337,47 @@
           </button>
         </li>
 
-        <li v-if="manifestIsAvailable" >
+        <li v-if="manifestStatus !== 'none'" >
           <button
             type="button"
             class="dots-button images-btn"
-            aria-label="Images seules"
+            :class="{ disabled: manifestStatus === 'error', [`is-${manifestStatus}`]: !manifestIsAvailable }"
+            :disabled="!manifestIsAvailable"
+            :aria-busy="manifestStatus === 'loading'"
+            :aria-label="{ loading: 'Images en cours de chargement', error: 'Images indisponibles : la source ne répond pas' }[manifestStatus] ?? 'Images seules'"
+            :title="manifestStatus === 'error' ? 'Images indisponibles : la source ne répond pas' : null"
             @click="changeViewMode('images-mode')"
           >
             <IconImage
               :size="40"
               :radius="4"
-              :class="{ active: getViewMode() === 'images-mode' || getViewMode() === 'text-and-images-mode'}"
+              :class="{ active: manifestIsAvailable && (getViewMode() === 'images-mode' || getViewMode() === 'text-and-images-mode') }"
             />
+            <span
+              v-if="manifestStatus === 'loading'"
+              class="images-btn-progress"
+              aria-hidden="true"
+            />
+            <svg
+              v-else-if="manifestStatus === 'error'"
+              class="images-btn-error"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2.5 23 21.5H1Z"
+                fill="#F2B705"
+                stroke="#1A1A1A"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M12 9v6M12 17.6v.4"
+                stroke="#1A1A1A"
+                stroke-width="2.2"
+                stroke-linecap="round"
+              />
+            </svg>
           </button>
         </li>
 
@@ -568,7 +599,9 @@ export default {
     const docProjectId = ref('')
     const appConfig = computed(() => props.applicationConfig)
     const collConfig = computed(() => props.collectionConfig)
-    const manifestIsAvailable = ref(false)
+    // none (no dots:resourceIIIFManifest), loading, ready or error
+    const manifestStatus = ref('none')
+    const manifestIsAvailable = computed(() => manifestStatus.value === 'ready')
     const manifest = shallowRef(null)
     // Every manifest of the displayed item, [{ url, data }]; manifest is the one opened in Mirador
     const manifests = shallowRef([])
@@ -1588,7 +1621,7 @@ export default {
 
       manifests.value = loaded
       manifest.value = data
-      manifestIsAvailable.value = true
+      manifestStatus.value = 'ready'
 
       if (miradorInstance.miradorStore) {
         miradorInstance.receiveManifests(loaded.map((item) => item.data))
@@ -1610,7 +1643,8 @@ export default {
         if (!resourceManifest.value) {
           manifest.value = null
           manifests.value = []
-          manifestIsAvailable.value = false
+          // The manifest of the resource may still be loading: its watcher settles the status
+          if (manifestStatus.value !== 'loading') manifestStatus.value = 'none'
           return
         }
 
@@ -1627,7 +1661,17 @@ export default {
             )
 
 
-            const loaded = await loadManifests(currentRes?.extensions?.['dots:resourceIIIFManifest'])
+            const declared = currentRes?.extensions?.['dots:resourceIIIFManifest']
+
+            if (!getManifestUrls(declared).length) {
+              manifest.value = null
+              manifests.value = []
+              manifestStatus.value = 'none'
+              return
+            }
+
+            manifestStatus.value = 'loading'
+            const loaded = await loadManifests(declared)
 
             if (loadId !== _currentLoadId) {
               return
@@ -1636,7 +1680,7 @@ export default {
             if (!loaded.length) {
               manifest.value = null
               manifests.value = []
-              manifestIsAvailable.value = false
+              manifestStatus.value = 'error'
               return
             }
 
@@ -1646,7 +1690,7 @@ export default {
           }
 
           // Sous-cas 1b : affichage de la collection
-          manifestIsAvailable.value = true
+          manifestStatus.value = 'ready'
 
           if (miradorInstance.miradorStore) {
             miradorInstance.loadCollectionManifest(
@@ -1669,7 +1713,7 @@ export default {
 
         manifest.value = null
         manifests.value = []
-        manifestIsAvailable.value = false
+        manifestStatus.value = 'error'
 
       }
     }
@@ -1699,11 +1743,12 @@ export default {
           manifests.value = []
           resourceManifest.value = null
           resourceManifests.value = []
-          manifestIsAvailable.value = false
+          manifestStatus.value = 'none'
           return
         }
 
         layout.imageIsAvailable.value = true
+        manifestStatus.value = 'loading'
 
         try {
           await loadResourceManifest()
@@ -1715,7 +1760,7 @@ export default {
           manifests.value = []
           resourceManifest.value = null
           resourceManifests.value = []
-          manifestIsAvailable.value = false
+          manifestStatus.value = 'error'
         }
       }, { immediate: true }
     )
@@ -1958,6 +2003,7 @@ export default {
       ancestorLabel,
       metadata,
       manifestIsAvailable,
+      manifestStatus,
       manifest,
       manifests,
       textManifestUrl,
@@ -2162,6 +2208,61 @@ export default {
 }
 .controls .notes-btn {
   color: #C3C3C3;
+}
+/* The manifest is loading or failed: the buttons stay, inactive */
+.controls button.dots-button:disabled {
+  cursor: default;
+}
+.controls .images-btn {
+  position: relative;
+}
+/* Like an app being installed on iOS: a veil, and a disc that fills over and over */
+@property --images-btn-progress {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.images-btn-progress {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background-color: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    width: 70%;
+    aspect-ratio: 1;
+    box-sizing: border-box;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    background:
+      conic-gradient(rgba(255, 255, 255, 0.95) var(--images-btn-progress), transparent 0)
+      content-box;
+    padding: 2px;
+    animation: images-btn-fill 2.4s ease-in-out infinite;
+  }
+}
+@keyframes images-btn-fill {
+  from { --images-btn-progress: 0deg; }
+  to { --images-btn-progress: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .images-btn-progress::before {
+    animation-duration: 6s;
+  }
+}
+.images-btn-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
 }
 .controls button:focus-visible {
   outline: 2px solid #B9192F;
