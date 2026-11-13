@@ -22,6 +22,7 @@ export default function useApi () {
     error.value = null
     try {
       const response = await fetch(query.value, { mode: 'cors', ...options })
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`)
       result.value = json ? await response.json() : await response.text()
     } catch (e) {
       error.value = e

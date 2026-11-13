@@ -139,6 +139,13 @@
       </Transition>
       <div class="page-main">
         <p
+          v-if="search.searchError.value"
+          class="search-config-warning"
+          role="alert"
+        >
+          {{ search.searchError.value }}
+        </p>
+        <p
           v-if="configWarning === 'level0-mixed'"
           class="search-config-warning"
         >

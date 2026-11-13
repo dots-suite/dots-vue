@@ -308,6 +308,8 @@ export default function useSimpleSearch() {
 
       await api.runQuery()
 
+      if (api.error.value) throw api.error.value
+
       const _res = api.result.value
 
       if (!_res) return
@@ -353,6 +355,7 @@ export default function useSimpleSearch() {
 
     } catch (e) {
       console.error('search execute error', e)
+      store.commit('search/setSearchError', 'Impossible de charger ces résultats : les résultats affichés sont ceux de la recherche précédente.')
     } finally {
       store.commit('search/setSearchLoading', false)
     }
@@ -377,6 +380,7 @@ export default function useSimpleSearch() {
     excludedFacets: computed(() => searchState.value?.excludedFacets ?? []),
     initialTemporal: computed(() => searchState.value?.initialTemporal ?? {}),
     totalCount: computed(() => searchState.value?.totalCount || 0),
+    searchError: computed(() => searchState.value?.error || null),
     bucketCount: computed(() => searchState.value?.bucketCount || null),
     // below `?? null` instead of `|| null`: false has a meaning in this case
     collectionIndexed: computed(() => searchState.value?.collectionIndexed ?? null),

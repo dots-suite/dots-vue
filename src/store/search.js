@@ -56,6 +56,9 @@ function createEmptySearchState() {
     fragmentScope: null,
     // Sort of a search without term while the reader has not chosen one (searchConfig.defaultSort)
     defaultSort: '',
+    // Page of the results on display, and the message of a search that failed
+    loadedPage: 1,
+    error: null,
 
     // Default search mode: full text
     isFulltextSearch: true,
@@ -129,6 +132,14 @@ export default {
 
       s.collectionId = v
       invalidatePagination(s)
+    },
+
+    // The results on display stay: the pagination goes back to their page
+    setSearchError(state, message) {
+      const s = getProject(state)
+      if (!s) return
+      s.error = message
+      s.pageNum = s.loadedPage || 1
     },
 
     setSearchLoading(state, v) {
@@ -385,6 +396,8 @@ export default {
       if (!s) return
 
       s.result = payload.data || []
+      s.loadedPage = s.pageNum
+      s.error = null
       s.totalCount = payload.total_count || 0
       s.bucketCount = payload.bucket_count || null
       // below `?? null` instead of `|| null`: false has a meaning in this case
