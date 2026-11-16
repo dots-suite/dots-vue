@@ -347,30 +347,36 @@ export default {
     const customJsConfs = Object.fromEntries(Object.entries(import.meta.glob('confs/**/*.customJs.js')).map(([key, value]) => {
       return [key.split('/').at(-1).replace('.customJs.js', ''), value]
     }))
-    // Fonts stylesheet named by collectionCustomFonts (<name>.customFonts.css in
-    // the custom settings), inherited by the collections like
-    // collectionCustomCss. Built by Vite, unlike the custom CSS, so that its
-    // url() to the font files resolve; linked before #customCss.
+    // Fonts stylesheets named by collectionCustomFonts (<name>.customFonts.css
+    // in the custom settings). Built by Vite, unlike the custom CSS, so that
+    // their url() resolve; linked before #customCss.
     const customFontsUrls = Object.fromEntries(Object.entries(
       import.meta.glob('confs/**/*.customFonts.css', { query: '?url', import: 'default', eager: true })
     ).map(([key, url]) => [key.split('/').at(-1).replace('.customFonts.css', ''), url]))
 
+    // The sheets add up instead of replacing each other: those of the root
+    // collection, then of the project, then of the collection, so that a
+    // collection's own sheet keeps the site's fonts.
     const applyCustomFonts = () => {
-      const url = customFontsUrls[collConfig.value.collectionCustomFonts]
-      let el = document.getElementById('customFonts')
-      if (!url) {
-        el?.remove()
-        return
-      }
-      if (!el) {
-        el = document.createElement('link')
-        el.id = 'customFonts'
+      const urls = [...new Set(
+        [rootCollConfig.value, projectCollConfig.value, collConfig.value]
+          .map(conf => customFontsUrls[conf?.collectionCustomFonts])
+          .filter(Boolean)
+      )]
+
+      const linked = [...document.querySelectorAll('link[data-custom-fonts]')]
+      if (linked.map(el => el.getAttribute('href')).join() === urls.join()) return
+
+      linked.forEach(el => el.remove())
+      const customCssEl = document.getElementById('customCss')
+      urls.forEach(url => {
+        const el = document.createElement('link')
         el.rel = 'stylesheet'
-        const customCssEl = document.getElementById('customCss')
+        el.href = url
+        el.dataset.customFonts = ''
         if (customCssEl) document.head.insertBefore(el, customCssEl)
         else document.head.appendChild(el)
-      }
-      if (el.getAttribute('href') !== url) el.setAttribute('href', url)
+      })
     }
 
     const getCustomJs = async () => {
