@@ -28,8 +28,8 @@
       <VueSlider
         :class="{ 'has-many-marks': Object.keys(marks).length > 3 }"
         v-model="sliderValue"
-        :min="currentFacet.min"
-        :max="currentFacet.max"
+        :min="sliderMin"
+        :max="sliderMax"
         :tooltip="'none'"
         :process="customProcess"
         :dot-options="dotOptions"
@@ -245,7 +245,8 @@ function commitYear(bound) {
 
 function toPercent(value) {
   if (!currentFacet.value) return 0
-  const { min, max } = currentFacet.value
+  const min = sliderMin.value
+  const max = sliderMax.value
 
   if (max === min) return 0
   return ((value - min) / (max - min)) * 100
@@ -397,6 +398,8 @@ const marks = computed(() => {
 
   const facetMin = Number(currentFacet.value.min)
   const facetMax = Number(currentFacet.value.max)
+  const railMin = sliderMin.value
+  const railMax = sliderMax.value
 
   const availableMinValue = Number(effectiveAvailableMin.value)
   const availableMaxValue = Number(effectiveAvailableMax.value)
@@ -425,7 +428,7 @@ const marks = computed(() => {
         .filter(Number.isFinite)
         .filter(value => {
           // A value is evaluated against total range of slider
-          return value >= facetMin && value <= facetMax
+          return value >= railMin && value <= railMax
         })
     )
   ].sort((a, b) => a - b)
@@ -484,6 +487,26 @@ const effectiveAvailableMax = computed(() => {
     currentFacet.value.available_max ??
     currentFacet.value.max
   )
+})
+
+// Bounds of the rail: the memorised corpus bounds, widened to the range of
+// the current results. Those bounds are kept from the first answer of the
+// session, so results reaching past them (index rebuilt meanwhile, a first
+// search narrower than the next ones) would otherwise draw the dots and the
+// process bars outside the rail.
+function railBound(pick, ...values) {
+  const finite = values.map(Number).filter(Number.isFinite)
+  return finite.length ? pick(...finite) : null
+}
+
+const sliderMin = computed(() => {
+  if (!currentFacet.value) return null
+  return railBound(Math.min, currentFacet.value.min, effectiveAvailableMin.value)
+})
+
+const sliderMax = computed(() => {
+  if (!currentFacet.value) return null
+  return railBound(Math.max, currentFacet.value.max, effectiveAvailableMax.value)
 })
 
 

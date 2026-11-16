@@ -35,7 +35,11 @@ function createEmptySearchState() {
       available: {},
       selected: {}
     },
+    // Bounds of the temporal facets over the whole perimeter (collection,
+    // level), whatever the term, facets and dates: the rail of the sliders
     initialTemporal: [],
+    // URL of the unfiltered search those bounds come from
+    temporalBaselineUrl: null,
     temporal: [],
 
     // Ids of the temporal facets that are explicitly disabled
@@ -98,6 +102,37 @@ function invalidatePagination(s) {
   s.afterKeys = [
     null // page 1
   ]
+}
+
+// Memorised temporal bounds widened to those of a new answer: each facet keeps
+// the lowest min and the highest max seen in the session, with their ISO date.
+// A facet seen for the first time is added as it comes.
+export function widenTemporalBounds(memorised, temporal) {
+  const widened = (Array.isArray(memorised) ? memorised : []).map(facet => ({ ...facet }))
+  const byKey = new Map(widened.map(facet => [facet.key, facet]))
+
+  // The API answers {} instead of [] when there is no temporal facet
+  for (const facet of Array.isArray(temporal) ? temporal : []) {
+    const known = byKey.get(facet.key)
+
+    if (!known) {
+      const copy = JSON.parse(JSON.stringify(facet))
+      widened.push(copy)
+      byKey.set(copy.key, copy)
+      continue
+    }
+
+    if (Number.isFinite(facet.min) && (!Number.isFinite(known.min) || facet.min < known.min)) {
+      known.min = facet.min
+      known.min_iso = facet.min_iso
+    }
+    if (Number.isFinite(facet.max) && (!Number.isFinite(known.max) || facet.max > known.max)) {
+      known.max = facet.max
+      known.max_iso = facet.max_iso
+    }
+  }
+
+  return widened
 }
 
 export default {
@@ -296,6 +331,7 @@ export default {
       // The set of facets returned by the API changes: the memorised
       // initial bounds describe the previous set, so invalidate them.
       s.initialTemporal = []
+      s.temporalBaselineUrl = null
       s.temporal = []
     },
 
@@ -348,6 +384,7 @@ export default {
       s.ranges = {}
       s.temporal = []
       s.initialTemporal = []
+      s.temporalBaselineUrl = null
       s.sorts = ''
       s.result = []
 
@@ -405,14 +442,11 @@ export default {
       s.granularities = payload.granularities || []
       s.temporal = payload.temporal || []
 
-      // On ne mémorise les bornes initiales qu'une seule fois
-      if (
-        s.initialTemporal.length === 0 &&
-        Array.isArray(payload.temporal)
-      ) {
-        s.initialTemporal = JSON.parse(
-          JSON.stringify(payload.temporal)
-        )
+      // The bounds come from the unfiltered search of the perimeter
+      // (setSearchTemporalBaseline); until it answers, or if it fails, they
+      // are those of the answers seen so far, only ever widened
+      if (Array.isArray(payload.temporal)) {
+        s.initialTemporal = widenTemporalBounds(s.initialTemporal, payload.temporal)
       }
 
       const available = payload.facets || {}
@@ -437,6 +471,20 @@ export default {
       s.facets.available = available
 
       s.lastUpdated = Date.now()
+    },
+
+    // Bounds of the unfiltered search of the perimeter: they replace the
+    // memorised ones, still widened to the current results in case the
+    // index changed between the two answers
+    setSearchTemporalBaseline(state, { url, temporal }) {
+      const s = getProject(state)
+      if (!s) return
+
+      s.temporalBaselineUrl = url
+      s.initialTemporal = widenTemporalBounds(
+        widenTemporalBounds([], Array.isArray(temporal) ? temporal : []),
+        s.temporal
+      )
     },
 
     resetSearch(state, projectId) {
