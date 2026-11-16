@@ -47,7 +47,20 @@
             <div
               v-if="isHighlights"
               class="cell header-cell chevron-header-cell"
-            />
+            >
+              <!-- Open/close all the rows of the page: the rows' caret
+                   under a line, flipped to close them all -->
+              <button
+                v-if="paginated.length"
+                type="button"
+                class="rows-toggle-all"
+                :class="{ opened: allRowsOpened }"
+                :aria-expanded="allRowsOpened"
+                :aria-label="allRowsOpened ? 'Replier tous les résultats' : 'Déplier tous les résultats'"
+                :title="allRowsOpened ? 'Replier tout' : 'Déplier tout'"
+                @click="toggleAllRows"
+              />
+            </div>
           </template>
           <!-- ============================= -->
           <!-- NORMAL                        -->
@@ -514,6 +527,19 @@ name: 'ResourcesList',
     const totalPages = computed(() => table.totalPages.value)
     const paginated = computed(() => table.paginated.value)
 
+    // Open/close all the rows of the current page at once
+    const allRowsOpened = computed(() =>
+      paginated.value.length > 0 &&
+      paginated.value.every(item => isOpen(item.identifier))
+    )
+
+    const toggleAllRows = () => {
+      const ids = paginated.value.map(item => item.identifier)
+      openRows.value = allRowsOpened.value
+        ? openRows.value.filter(id => !ids.includes(id))
+        : [...new Set([...openRows.value, ...ids])]
+    }
+
     // NO RESULTS HANDLING (not -properly- indexed yet, or no results)
     const hasNoRows = computed(
       () => !isTableLoading.value && (paginated.value?.length ?? 0) === 0
@@ -772,6 +798,8 @@ name: 'ResourcesList',
       isHighlights,
       toggle,
       isOpen,
+      allRowsOpened,
+      toggleAllRows,
       columns,
       table,
       filters,
@@ -1143,6 +1171,46 @@ name: 'ResourcesList',
   padding-top: 10px;
 }
 
+/* Open/close all the rows: the closed rows' "v" topped with a line,
+   flipped (line under a "^") once they are all opened */
+.list-mode .chevron-header-cell {
+  justify-content: flex-end;
+}
+.list-mode .rows-toggle-all {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: transform .2s ease;
+
+  &::before {
+    content: "";
+    width: 13px;
+    height: 2.5px;
+    border-radius: 1px;
+    background: var(--fill-color);
+  }
+  &::after {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-right: 2.5px solid var(--fill-color);
+    border-bottom: 2.5px solid var(--fill-color);
+    transform: translateY(-3px) rotate(45deg);
+  }
+  &.opened {
+    transform: rotate(180deg);
+  }
+}
+
 /* FILTER */
 .list-mode .filter {
   width: 100%;
@@ -1430,9 +1498,16 @@ input[type=number] {
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
+    /* the open/close all button out of the columns, above the rows' chevron */
+    position: relative;
+    padding-right: 52px;
 
     & > .chevron-header-cell {
-      display: none;
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      height: var(--button-size);
+      justify-content: center;
     }
   }
 
@@ -1498,6 +1573,12 @@ input[type=number] {
   /* Search results table header: centered columns (as number of results) */
   .list-mode .li.container.search-header {
     column-gap: var(--mobile-margin);
+    padding-right: calc(var(--mobile-margin) + 32px);
+
+    /* above the rows' chevron, moved in the same way */
+    & > .chevron-header-cell {
+      right: var(--mobile-margin);
+    }
   }
 
   .list-mode .header-cell.search {
