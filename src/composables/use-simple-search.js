@@ -128,13 +128,14 @@ export default function useSimpleSearch() {
   // ----------------------
   // QUERY
   // ----------------------
-  function updateQuery() {
-    const s = searchState.value
-    if (!s) return
-
+  // URL of the search described by the state. The baseline is the same
+  // search with nothing typed nor selected (no term, facet, filter or date),
+  // kept to its perimeter (collection, level, excluded facets): its temporal
+  // bounds are the rail of the date sliders.
+  function buildSearchUrl(s, { baseline = false } = {}) {
     let rangesArg = ''
 
-    Object.entries(s.ranges || {}).forEach(([field, range]) => {
+    Object.entries(baseline ? {} : (s.ranges || {})).forEach(([field, range]) => {
 
 
   // ---------- intervalle historique ----------
@@ -182,20 +183,24 @@ export default function useSimpleSearch() {
       : ''
 
     // With a term, relevance stays the default order
-    const sorts = s.sorts || (!s.term?.trim() && s.defaultSort) || ''
+    const sorts = baseline ? '' : (s.sorts || (!s.term?.trim() && s.defaultSort) || '')
     const sortArg = sorts ? `&sort=${sorts}` : ''
-    const highlightArg = s.noHighlight ? '&no-highlight' : ''
-    const termValue = !isResourceSearch.value ? (s.term || '***') : ''
+    // Without a term the page always asks for no highlight (SearchPage)
+    const highlightArg = baseline || s.noHighlight ? '&no-highlight' : ''
+    // Same choice as isResourceSearch, for an empty term
+    const termValue = baseline
+      ? (s.collectionId ? '' : '***')
+      : (!isResourceSearch.value ? (s.term || '***') : '')
 
     let groupbyArg = ''
-    if (groupbyField.value) {
+    if (!baseline && groupbyField.value) {
       groupbyArg = `&groupby[field]=${groupbyField.value}`
       if (withIds.value) groupbyArg += `&groupby[with-ids]=${withIds.value}`
       //if (s.afterKey) groupbyArg += `&groupby[after-page]=${s.afterKey}`
     }
 
     let afterArg = ''
-    if (s.noHighlight === false && s.pageNum > 1) {
+    if (!baseline && s.noHighlight === false && s.pageNum > 1) {
       afterArg = `&after=${s.afterKeys[s.pageNum - 1]}`
     }
 
@@ -207,7 +212,7 @@ export default function useSimpleSearch() {
     // SEARCH FILTERS
     let filterArgs = ''
 
-    const filters = Object.entries(s.filters || {})
+    const filters = Object.entries(baseline ? {} : (s.filters || {}))
       .filter(([, value]) => value)
 
     if (filters.length) {
@@ -228,7 +233,7 @@ export default function useSimpleSearch() {
     //   })
     // })
     const selectedFacets = Object.fromEntries(
-      Object.entries(s.facets.selected)
+      Object.entries(baseline ? {} : s.facets.selected)
         .filter(([, values]) => values.length > 0)
     )
 
@@ -267,8 +272,19 @@ export default function useSimpleSearch() {
         }`
     }
 
-    const searchUrl = `${_baseApiURL}/search?query=${encodeURIComponent(termValue)}&${filterArgs}&page[number]=${s.pageNum}&page[size]=${s.pageSize}${sortArg}${highlightArg}${groupbyArg}${collectionArg}${facetArgs}${rangesArg}${temporalArg}${excludeFacetsArg}${afterArg}${scopeArg}`
+    // The baseline only needs its temporal aggregations
+    const pageArgs = baseline
+      ? 'page[number]=1&page[size]=1'
+      : `page[number]=${s.pageNum}&page[size]=${s.pageSize}`
 
+    return `${_baseApiURL}/search?query=${encodeURIComponent(termValue)}&${filterArgs}&${pageArgs}${sortArg}${highlightArg}${groupbyArg}${collectionArg}${facetArgs}${rangesArg}${temporalArg}${excludeFacetsArg}${afterArg}${scopeArg}`
+  }
+
+  function updateQuery() {
+    const s = searchState.value
+    if (!s) return
+
+    const searchUrl = buildSearchUrl(s)
     api.setQuery(searchUrl)
     console.log('use-simple-search.js updateQuery searchUrl :', searchUrl)
   }
@@ -295,11 +311,51 @@ export default function useSimpleSearch() {
   )
 
   // ----------------------
+  // TEMPORAL BASELINE
+  // ----------------------
+  // The date sliders span the whole perimeter, not the first answer of the
+  // session: one unfiltered search per perimeter gives their bounds. Run
+  // beside the search itself; on failure the bounds of the answers stay.
+  let baselineInFlight = null
+
+  function refreshTemporalBaseline(pid) {
+    const s = searchState.value
+    if (!s) return
+
+    const url = buildSearchUrl(s, { baseline: true })
+    if (s.temporalBaselineUrl === url || baselineInFlight === url) return
+
+    baselineInFlight = url
+
+    fetch(url, { mode: 'cors' })
+      .then(response => {
+        if (!response.ok) throw new Error(`search ${response.status} on ${url}`)
+        return response.json()
+      })
+      .then(body => {
+        // The perimeter may have changed while it was loading
+        const current = searchState.value
+        if (store.state.search.activeProjectId !== pid || !current) return
+        if (buildSearchUrl(current, { baseline: true }) !== url) return
+
+        store.commit('search/setSearchTemporalBaseline', { url, temporal: body.temporal })
+      })
+      .catch(e => {
+        console.warn('use-simple-search.js temporal baseline unavailable, the slider keeps the bounds of the answers', e)
+      })
+      .finally(() => {
+        if (baselineInFlight === url) baselineInFlight = null
+      })
+  }
+
+  // ----------------------
   // EXECUTE QUERY ---
   // ----------------------
   const execute = debounce(async () => {
     const pid = store.state.search.activeProjectId
     if (!pid) return
+
+    refreshTemporalBaseline(pid)
 
     store.commit('search/setSearchLoading', true)
 
