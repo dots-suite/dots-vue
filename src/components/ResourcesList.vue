@@ -224,10 +224,10 @@
                     >
                       <button
                         type="button"
-                        class="hits-fold"
+                        class="hits-fold is-active"
                         title="Replier les passages"
                         aria-label="Replier les passages"
-                        @click.stop="toggleAllHits(item.identifier)"
+                        @click.stop="toggleAllHits(item.identifier, $event)"
                       >
                         <DirectionalChevron direction="up" />
                       </button>
@@ -270,10 +270,12 @@
                       <button
                         type="button"
                         class="hits-toggle"
-                        @click.stop="toggleAllHits(item.identifier)"
+                        @click.stop="toggleAllHits(item.identifier, $event)"
                       >
                         Voir les {{ item.hits.length }} passages
-                        <DirectionalChevron direction="down" />
+                        <span class="hits-toggle-box">
+                          <DirectionalChevron direction="down" />
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -447,7 +449,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { router } from '@/router'
 import store from '@/store'
 import { useTable } from '@/composables/useTable.js'
@@ -530,10 +532,29 @@ name: 'ResourcesList',
 
     // Toggle rather than a one-way expansion: an expanded row can be folded
     // back to the preview, the toggle staying visible in both states
-    const toggleAllHits = id => {
-      expandedHits.value = expandedHits.value.includes(id)
+    const toggleAllHits = (id, event) => {
+      const collapsing = expandedHits.value.includes(id)
+      // Captured before the update: currentTarget is gone after the event
+      const foldButton = collapsing ? event?.currentTarget : null
+      const container = foldButton?.closest('.hits-container')
+      const foldRect = foldButton?.getBoundingClientRect()
+
+      expandedHits.value = collapsing
         ? expandedHits.value.filter(i => i !== id)
         : [...expandedHits.value, id]
+
+      // Folding removes the passages above the "see all" toggle: the page
+      // scrolls so that its square takes the place of the fold button (about
+      // the middle of the screen), as far as the page can scroll back up
+      if (container && foldRect) {
+        nextTick(() => {
+          const box = container.querySelector('.hits-toggle-box')
+          if (!box) return
+          const boxRect = box.getBoundingClientRect()
+          const shift = (boxRect.top + boxRect.height / 2) - (foldRect.top + foldRect.height / 2)
+          window.scrollBy({ top: shift, behavior: 'instant' })
+        })
+      }
     }
     const areAllHitsShown = id => expandedHits.value.includes(id)
     const isPassagesToggleVisible = item => item.hits.length > HITS_PREVIEW_LIMIT
@@ -1064,9 +1085,6 @@ name: 'ResourcesList',
   list-style-type: none;
   margin: 0;
   padding: 0;
-  /* Band kept free on the right for the sticky fold icon, so the passages
-     never run under it (see .hits-fold) */
-  padding-right: calc(28px + 12px);
 }
 
 .list-mode .cell .hits-list > li {
@@ -1172,15 +1190,59 @@ name: 'ResourcesList',
   z-index: 21;
   display: flex;
   justify-content: flex-end;
-  /* no extra height: the icon floats above the passages' start */
-  height: 0;
-  margin-bottom: -.5rem;
+  /* As tall as the button and without negative margin (sticking keeps the
+     margin box inside the grey container's padding): it stops with the whole
+     button inside. The passages give that height back by rising under it:
+     like the "back to top" button, the icon floats over them */
+  height: 28px;
+}
+.list-mode .cell .hits-fold-row + .hits-list {
+  margin-top: calc(-28px - .5rem);
+}
+
+@media screen and (max-width: 768px) {
+  .list-mode .cell .hits-fold-row {
+    height: 24px;
+  }
+  .list-mode .cell .hits-fold-row + .hits-list {
+    margin-top: calc(-24px - .5rem);
+  }
+}
+
+/* Fold and "see all" squares: centred on the resource rows' open/close
+   caret (24px, see .chevron-up). The margin is the caret's centre from the
+   right edge, minus half the square (28px; 24px under 768px) and the grey
+   container's padding (1rem; 14px under 768px). The caret's centre: the
+   row's 15px padding + 12px; then, below 1024px, its right: 20px + 12px;
+   under 640px, --mobile-margin + 12px */
+.list-mode .cell .hits-fold-row,
+.list-mode .cell .hits-toggle-row {
+  margin-right: calc(15px + 12px - 28px / 2 - 1rem);
+}
+@media screen and (max-width: 1024px) {
+  .list-mode .cell .hits-fold-row,
+  .list-mode .cell .hits-toggle-row {
+    margin-right: calc(20px + 12px - 28px / 2 - 1rem);
+  }
+}
+@media screen and (max-width: 768px) {
+  .list-mode .cell .hits-fold-row,
+  .list-mode .cell .hits-toggle-row {
+    margin-right: calc(20px + 12px - 24px / 2 - 14px);
+  }
+}
+@media screen and (max-width: 640px) {
+  .list-mode .cell .hits-fold-row,
+  .list-mode .cell .hits-toggle-row {
+    margin-right: calc(var(--mobile-margin) + 12px - 24px / 2 - 14px);
+  }
 }
 
 /* Same look as the "back to top" arrow, smaller and square: a chevron in the
    collection colour on white, with its own background so the passages do not
    show through while it sticks */
-.list-mode .cell .hits-fold {
+.list-mode .cell .hits-fold,
+.list-mode .cell .hits-toggle-box {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1191,32 +1253,45 @@ name: 'ResourcesList',
   border-radius: var(--button-border-radius);
   background: #ffffff;
   color: var(--fill-color);
+}
+
+.list-mode .cell .hits-fold {
   cursor: pointer;
 }
 
-.list-mode .cell .hits-fold :deep(.icon-wrapper) {
-  width: 12px;
-  height: 12px;
-}
-
-.list-mode .cell .hits-fold:hover {
+/* Expanded: the fold button is the active state, in plain collection colour */
+.list-mode .cell .hits-fold.is-active {
   background: var(--fill-color);
   color: #ffffff;
 }
 
-@media screen and (max-width: 768px) {
-  .list-mode .cell .hits-fold-row {
-    height: auto;
-    margin-bottom: .25rem;
-  }
+.list-mode .cell .hits-fold :deep(.icon-wrapper),
+.list-mode .cell .hits-toggle-box :deep(.icon-wrapper) {
+  width: 12px;
+  height: 12px;
+}
 
-  .list-mode .cell .hits-fold {
+/* The fold caret 1.5px thick on screen (the "see all" one keeps the
+   icon's 2 units, about 0.9px): the 12px icon draws
+   a 26-unit viewBox, so 1.5 * 26 / 12 units, written as a literal length (a
+   unitless calc() is ignored by some browsers here); not clipped at the
+   viewBox edges */
+.list-mode .cell .hits-fold.is-active :deep(svg) {
+  overflow: visible;
+}
+.list-mode .cell .hits-fold.is-active :deep(path) {
+  stroke-width: 3.25px;
+}
+
+.list-mode .cell .hits-fold.is-active:hover {
+  background: color-mix(in srgb, var(--fill-color) 85%, #000000);
+}
+
+@media screen and (max-width: 768px) {
+  .list-mode .cell .hits-fold,
+  .list-mode .cell .hits-toggle-box {
     width: 24px;
     height: 24px;
-  }
-
-  .list-mode .cell .hits-list {
-    padding-right: calc(24px + 8px);
   }
 }
 
@@ -1245,10 +1320,10 @@ name: 'ResourcesList',
   text-decoration: var(--text-decoration-hover);
 }
 
-/* Same chevron as the sticky fold button, pointing down to expand */
-.list-mode .cell .hits-toggle :deep(.icon-wrapper) {
-  width: 12px;
-  height: 12px;
+/* Chevron box of the collapsed toggle: square like the sticky fold button,
+   next to the label rather than around it */
+.list-mode .cell .hits-toggle-box {
+  flex: none;
 }
 
 /* Open/close the hits of a full-text row: small, in the collection colour,
