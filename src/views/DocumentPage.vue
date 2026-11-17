@@ -2299,12 +2299,14 @@ export default {
   @media screen and (max-width: 768px) {
     .document-views .text-view #article:not(.bottom-toc) {
       margin-left: 22px !important;
+      margin-right: 22px !important;
     }
   }
 
   @media screen and (max-width: 640px) {
     .document-views .text-view #article:not(.bottom-toc) {
       margin-left: 10px !important;
+      margin-right: 10px !important;
     }
   }
 }
