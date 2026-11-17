@@ -279,10 +279,11 @@ article.about .page-header h1,
 
 .about .about-content a,
 .about .content a {
-  color: var(--fill-color);
+  /* as in main.css: --about-link-color can be set by a collection customCss */
+  color: var(--about-link-color, var(--fill-color));
   word-break: break-word;
   &:hover {
-    text-decoration: underline !important;
+    text-decoration: var(--text-decoration-hover) !important;
   }
 }
 .about .content table,
