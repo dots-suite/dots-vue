@@ -509,10 +509,14 @@ nav span.level-item:not(:last-child)::after {
   }
 
   & > span > a {
-    font-size: 34px;
+    /* App title at the collection title's size */
+    font-size: 24px;
     font-weight: 700;
     line-height: 1;
-    text-transform: capitalize;
+    /* Only the first word takes a capital, the titles keep their own case */
+    &::first-letter {
+      text-transform: uppercase;
+    }
 
     /* &.level-item-external:not(:last-child)::after {
       content: " > ";
@@ -712,9 +716,9 @@ ul.submenu a:hover {
       font-size: 18px;
       line-height: 1.2;
 
-      /* App title enlarged on phones too (24px), the collection title stays at 18px */
+      /* App title and collection title at the same size on phones (20px) */
       &:first-child {
-        font-size: 24px;
+        font-size: 20px;
       }
 
       &:not(:first-child) {
@@ -724,7 +728,7 @@ ul.submenu a:hover {
       &:nth-child(2) {
         margin-left: 10px;
         padding-left: 10px;
-        font-size: 18px;
+        font-size: 20px;
       }
 
       /*&:first-child {
