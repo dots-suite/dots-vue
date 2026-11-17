@@ -595,8 +595,9 @@ export default {
   margin-bottom: 20px;
 }
 
+/* "En savoir plus": same colour as the links of the about text */
 #home-article.article + a {
-  color: var(--fill-color);
+  color: var(--about-link-color, var(--fill-color));
 }
 
 #home-article.article + a:hover {
