@@ -91,6 +91,17 @@ body {
         text-decoration: none;
     }
 
+    /* About texts (home about panel, About page): links in the collection
+       colour, or in --about-link-color, which a collection customCss can set
+       on :root */
+    :is(.collection-about, .about-page .content) a {
+        color: var(--about-link-color, var(--fill-color));
+    }
+    /* whatever the colour, the usual dotted underline on hover */
+    :is(.collection-about, .about-page .content) a:hover {
+        text-decoration: var(--text-decoration-hover);
+    }
+
     span {
         font-style: inherit;
         font-weight: inherit;
