@@ -41,6 +41,7 @@
     },
     "searchConfig": {
       "target": "resource",
+      "defaultSort": "dublinCore.title",
       "columns": [
         {
           "key": "dublinCore.title",
