@@ -103,6 +103,7 @@ export default function useSimpleSearch() {
   const setPageNum = v => store.commit('search/setSearchPage', v)
   const setCollectionId = v => store.commit('search/setSearchActiveCollection', v)
   const setIsFulltextSearch = v => store.commit('search/setSearchIsFulltextSearch', v)
+  const setDefaultSort = v => store.commit('search/setSearchDefaultSort', v)
   const setExcludedTemporalFacets = v => store.commit('search/setSearchExcludedTemporalFacets', v)
   const setExcludedFacets = v => store.commit('search/setSearchExcludedFacets', v)
   const setFacet = ({ facetType, value }) =>
@@ -173,7 +174,9 @@ export default function useSimpleSearch() {
 
 })
 
-    const sortArg = !baseline && s.sorts ? `&sort=${s.sorts}` : ''
+    // With a term, relevance stays the default order
+    const sorts = baseline ? '' : (s.sorts || (!s.term?.trim() && s.defaultSort) || '')
+    const sortArg = sorts ? `&sort=${sorts}` : ''
     // Without a term the page always asks for no highlight (SearchPage)
     const highlightArg = baseline || s.noHighlight ? '&no-highlight' : ''
     // Same choice as isResourceSearch, for an empty term
@@ -287,6 +290,7 @@ export default function useSimpleSearch() {
       searchState.value?.ranges,
       searchState.value?.sorts,
       searchState.value?.collectionId,
+      searchState.value?.defaultSort,
       searchState.value?.noHighlight,
       searchState.value?.afterKey,
       JSON.stringify(searchState.value?.facets?.selected),
@@ -430,6 +434,7 @@ export default function useSimpleSearch() {
     isResultTableMode: computed(() => searchState.value?.isResultTableMode ?? true),
 
     setNoHighlight,
+    setDefaultSort,
     setTerm,
     setSearchFilter,
     setRange,

@@ -843,6 +843,13 @@ export default {
       { immediate: true }
     )
 
+    // Sort of a search without term, until the reader chooses a column
+    watch(
+      () => collConfig.value?.searchConfig?.defaultSort,
+      sort => search.setDefaultSort(sort),
+      { immediate: true }
+    )
+
     // immediate: true => the list lands in the store before the initial
     // executeSearches() below, hence from the very first request onwards.
     watch(

@@ -39,6 +39,9 @@
         "openState": false
       }
     },
+    "searchConfig": {
+      "defaultSort": "dublinCore.title"
+    },
     "footerSettings": {
       "footerTitle": "Titre",
       "footerSubtitles": [

@@ -59,6 +59,9 @@ function createEmptySearchState() {
 
     noHighlight: false,
 
+    // Sort of a search without term while the reader has not chosen one (searchConfig.defaultSort)
+    defaultSort: '',
+
     // Default search mode: full text
     isFulltextSearch: true,
     isResultTableMode: true,
@@ -371,6 +374,15 @@ export default {
       const s = getProject(state)
       if (!s) return
       s.pageNum = Math.max(1, Number(v) || 1)
+    },
+
+    setSearchDefaultSort(state, v) {
+      const s = getProject(state)
+
+      if (!s || s.defaultSort === (v || '')) return
+
+      s.defaultSort = v || ''
+      invalidatePagination(s)
     },
 
     setSearchIsFulltextSearch(state, v) {
