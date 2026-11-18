@@ -50,6 +50,21 @@
       "countLabel": {
         "singular": "result",
         "plural": "results"
+      },
+      "searchType": {
+        "default": "fulltext",
+        "options": {
+          "notice": {
+            "labels": { "long": "records", "short": "records" },
+            "prefix": false,
+            "minTermLength": 3
+          },
+          "fulltext": {
+            "labels": { "long": "full text", "short": "text" },
+            "prefix": false,
+            "minTermLength": 3
+          }
+        }
       }
     },
     "footerSettings": {

@@ -103,6 +103,7 @@
       v-if="searchRoute && !isSearchPage && isSearchOpened"
       :search-route="searchRoute"
       :collection-name="searchCollectionName"
+      :search-type-config="searchTypeConfig"
       @close="isSearchOpened = false"
     />
     <div class="mobile-button">
@@ -196,6 +197,15 @@ export default {
       collConfig.value?.collectionId,
       props.projectCollectionConfig?.collectionId
     ]))
+
+    // searchConfig.searchType of the collection whose search page the banner opens
+    const searchTypeConfig = computed(() => {
+      const collId = searchRoute.value?.params.collId
+      const conf = collId && collId === props.projectCollectionConfig?.collectionId && collId !== props.collectionConfig?.collectionId
+        ? props.projectCollectionConfig
+        : props.collectionConfig
+      return conf?.searchConfig?.searchType || {}
+    })
 
     // Search banner opened from the magnifier, over the navbar
     const isSearchOpened = ref(false)
@@ -414,6 +424,7 @@ export default {
       apiImgUrl,
       apiImgHref,
       searchRoute,
+      searchTypeConfig,
       isSearchPage,
       isSearchOpened,
       toggleSearch,

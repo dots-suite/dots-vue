@@ -2,6 +2,7 @@ import { computed, watch } from 'vue'
 import { debounce } from 'lodash'
 import { useStore } from 'vuex'
 import useApi from '@/composables/use-api'
+import { addSearchTypePrefix } from '@/composables/search-page'
 
 const _baseApiURL = import.meta.env.VITE_APP_ELASTICSEARCH_URL
 
@@ -106,6 +107,7 @@ export default function useSimpleSearch() {
   const setExcludedTemporalFacets = v => store.commit('search/setSearchExcludedTemporalFacets', v)
   const setExcludedFacets = v => store.commit('search/setSearchExcludedFacets', v)
   const setFragmentScope = v => store.commit('search/setSearchFragmentScope', v)
+  const setSearchTypeConfig = v => store.commit('search/setSearchTypeConfig', v)
   const setDefaultSort = v => store.commit('search/setSearchDefaultSort', v)
   const setFacet = ({ facetType, value }) =>
     store.commit('search/setFacet', {
@@ -190,7 +192,9 @@ export default function useSimpleSearch() {
     // Same choice as isResourceSearch, for an empty term
     const termValue = baseline
       ? (s.collectionId ? '' : '***')
-      : (!isResourceSearch.value ? (s.term || '***') : '')
+      : (!isResourceSearch.value
+          ? (addSearchTypePrefix(s.term, s.searchTypeConfig, s.isFulltextSearch === false ? 'notice' : 'fulltext') || '***')
+          : '')
 
     let groupbyArg = ''
     if (!baseline && groupbyField.value) {
@@ -305,6 +309,8 @@ export default function useSimpleSearch() {
       JSON.stringify(searchState.value?.excludedTemporalFacets),
       JSON.stringify(searchState.value?.excludedFacets),
       JSON.stringify(searchState.value?.fragmentScope),
+      searchState.value?.isFulltextSearch,
+      JSON.stringify(searchState.value?.searchTypeConfig),
     ],
     updateQuery,
     { immediate: true, deep: true }  // garde le comportement initial de watchEffect
@@ -466,6 +472,7 @@ export default function useSimpleSearch() {
     setExcludedTemporalFacets,
     setExcludedFacets,
     setFragmentScope,
+    setSearchTypeConfig,
     setDefaultSort,
 
     saveSnapshot,

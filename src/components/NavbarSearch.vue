@@ -19,7 +19,7 @@
             class="search-type-switch"
             :class="{ 'is-on': searchType === 'fulltext' }"
             aria-hidden="true"
-          /><span class="search-type-text"><span class="search-type-long">{{ currentSearchLabel }}</span><span class="search-type-short">{{ searchType === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
+          /><span class="search-type-text"><span class="search-type-long">{{ currentSearchLabel }}</span><span class="search-type-short">{{ currentSearchShortLabel }}</span></span></span>
         </button>
       </div>
       <div class="navbar-search-field">
@@ -68,7 +68,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { getInvalidQueryMessage } from '@/composables/search-page'
+import { getDefaultSearchType, getInvalidQueryMessage, getSearchTypeOptions } from '@/composables/search-page'
 
 export default {
   name: 'NavbarSearch',
@@ -82,6 +82,11 @@ export default {
     collectionName: {
       type: String,
       default: ''
+    },
+    // searchConfig.searchType of the searched collection
+    searchTypeConfig: {
+      type: Object,
+      default: () => ({})
     }
   },
 
@@ -91,21 +96,22 @@ export default {
     const router = useRouter()
     const store = useStore()
 
-    const searchTypeOptions = [
-      { value: 'notice', text: 'notices' },
-      { value: 'fulltext', text: 'plein texte' }
-    ]
+    const searchTypeOptions = computed(() => getSearchTypeOptions(props.searchTypeConfig))
 
     // Starts on the search type of the current search, like the search page bar
     const activeSearch = store.state.search.byProject?.[store.state.search.activeProjectId]
-    // Full text by default (no search yet), as the store
-    const searchType = ref((activeSearch?.isFulltextSearch ?? true) ? 'fulltext' : 'notice')
+    // No search yet: the default search type of the searched collection
+    const searchType = ref(activeSearch?.isFulltextSearch == null
+      ? getDefaultSearchType(props.searchTypeConfig)
+      : (activeSearch.isFulltextSearch ? 'fulltext' : 'notice'))
     const term = ref('')
     const inputEl = ref(null)
 
-    const currentSearchLabel = computed(() => searchTypeOptions.find(o => o.value === searchType.value)?.text)
+    const currentSearchOption = computed(() => searchTypeOptions.value.find(o => o.value === searchType.value))
+    const currentSearchLabel = computed(() => currentSearchOption.value?.text)
+    const currentSearchShortLabel = computed(() => currentSearchOption.value?.short)
 
-    const otherSearchLabel = computed(() => searchTypeOptions.find(o => o.value !== searchType.value)?.text)
+    const otherSearchLabel = computed(() => searchTypeOptions.value.find(o => o.value !== searchType.value)?.text)
 
     const switchSearchType = () => {
       searchType.value = searchType.value === 'fulltext' ? 'notice' : 'fulltext'
@@ -115,7 +121,7 @@ export default {
     // The search page reads q and searchType, runs the search, then drops them
     // Why the query cannot be searched, '' when it can (search-page.js)
     const invalidQueryMessage = computed(() =>
-      getInvalidQueryMessage(term.value, searchType.value === 'fulltext')
+      getInvalidQueryMessage(term.value, searchType.value, props.searchTypeConfig)
     )
 
     const clearTerm = () => {
@@ -140,6 +146,7 @@ export default {
       term,
       inputEl,
       currentSearchLabel,
+      currentSearchShortLabel,
       otherSearchLabel,
       switchSearchType,
       invalidQueryMessage,

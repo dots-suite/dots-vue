@@ -26,7 +26,7 @@
                     class="search-type-switch"
                     :class="{ 'is-on': searchType === 'fulltext' }"
                     aria-hidden="true"
-                  /><span class="search-type-text"><span class="search-type-long">{{ currentSearchLabel }}</span><span class="search-type-short">{{ searchType === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
+                  /><span class="search-type-text"><span class="search-type-long">{{ currentSearchLabel }}</span><span class="search-type-short">{{ currentSearchShortLabel }}</span></span></span>
                 </button>
               </div>
               <!-- input -->
@@ -186,7 +186,7 @@ import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
 import useSimpleSearch from '@/composables/use-simple-search'
 
-import { getInvalidQueryMessage } from '@/composables/search-page'
+import { getDefaultSearchType, getInvalidQueryMessage, getSearchTypeOptions } from '@/composables/search-page'
 import ResourcesList from '@/components/ResourcesList.vue'
 import SearchFacets from '@/components/SearchFacets.vue'
 import ActiveSearchFilters from '@/components/ActiveSearchFilters.vue'
@@ -813,6 +813,14 @@ export default {
       searchedWithHits.value = isFulltextSearch.value && !!t
     }
 
+    // searchConfig.searchType: default, labels, prefix and minTermLength of each search type
+    const searchTypeConfig = computed(() => searchConfig.value.searchType || {})
+    // A reader who has not chosen a search type yet starts on the default one
+    if (store.state.search.byProject?.[store.state.search.activeProjectId]?.isFulltextSearch == null) {
+      search.setIsFulltextSearch(getDefaultSearchType(searchTypeConfig.value) === 'fulltext')
+    }
+    watch(searchTypeConfig, config => search.setSearchTypeConfig(config), { immediate: true })
+
     const initialState = {
       term: layout.rawSearchedTerm.value || '',
       isFulltextSearch: search.isFulltextSearch.value,
@@ -835,10 +843,7 @@ export default {
     // field or the search type change, nor while the query is invalid
     const searchedWithHits = ref(isFulltextSearch.value && !!search.term.value)
 
-    const searchTypeOptions = [
-      { value: 'notice', text: 'notices' },
-      { value: 'fulltext', text: 'plein texte' }
-    ]
+    const searchTypeOptions = computed(() => getSearchTypeOptions(searchTypeConfig.value))
 
     const searchType = computed({
       get: () => (isFulltextSearch.value ? 'fulltext' : 'notice'),
@@ -849,16 +854,16 @@ export default {
 
     // Why the query cannot be searched, '' when it can (search-page.js)
     const invalidQueryMessage = computed(() =>
-      getInvalidQueryMessage(inputTerm.value, isFulltextSearch.value)
+      getInvalidQueryMessage(inputTerm.value, searchType.value, searchTypeConfig.value)
     )
     const isInvalidQuery = computed(() => invalidQueryMessage.value !== '')
 
-    const currentSearchLabel = computed(() => {
-      return searchTypeOptions.find(o => o.value === searchType.value)?.text
-    })
+    const currentSearchOption = computed(() => searchTypeOptions.value.find(o => o.value === searchType.value))
+    const currentSearchLabel = computed(() => currentSearchOption.value?.text)
+    const currentSearchShortLabel = computed(() => currentSearchOption.value?.short)
 
     const otherSearchLabel = computed(() => {
-      return searchTypeOptions.find(o => o.value !== searchType.value)?.text
+      return searchTypeOptions.value.find(o => o.value !== searchType.value)?.text
     })
 
     function switchSearchType() {
@@ -1099,6 +1104,7 @@ export default {
       isFulltextSearch,
       switchSearchType,
       currentSearchLabel,
+      currentSearchShortLabel,
       otherSearchLabel,
       searchTypeOptions,
       searchType,

@@ -446,7 +446,10 @@ export default {
           // Each key replaces the inherited one; a change of target restarts from the defaults
           const changed = srcValue.target && srcValue.target !== (objValue?.target || 'resource')
           const base = changed ? appConfig.value.genericConf?.searchConfig : objValue
-          return _.cloneDeep({ ...base, ...srcValue })
+          // Except searchType, kept across a change of target: the search types
+          // of a project reach its collections whatever their target
+          const searchType = srcValue.searchType ?? objValue?.searchType
+          return _.cloneDeep({ ...base, ...srcValue, ...(searchType ? { searchType } : {}) })
         }
 
         return undefined

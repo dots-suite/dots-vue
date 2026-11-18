@@ -64,8 +64,10 @@ function createEmptySearchState() {
     loadedPage: 1,
     error: null,
 
-    // Default search type: full text
-    isFulltextSearch: true,
+    // Search type, null until set from searchConfig.searchType.default
+    isFulltextSearch: null,
+    // searchConfig.searchType of the searched collection: prefix of each search type
+    searchTypeConfig: null,
     isResultTableMode: true,
 
     collectionId: null,
@@ -367,6 +369,16 @@ export default {
         delete s.facets.selected[id]
       })
 
+      invalidatePagination(s)
+    },
+
+    setSearchTypeConfig(state, v) {
+      const s = getProject(state)
+      const next = v || null
+
+      if (!s || JSON.stringify(s.searchTypeConfig) === JSON.stringify(next)) return
+
+      s.searchTypeConfig = next
       invalidatePagination(s)
     },
 
