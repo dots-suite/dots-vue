@@ -13,20 +13,20 @@
               :class="{ 'has-error': isInvalidQuery }"
             >
               <!-- Fulltext or Metadata search selector -->
-              <div class="search-mode-wrapper">
-                <!-- Two modes: a click switches to the other one -->
+              <div class="search-type-wrapper">
+                <!-- Two search types: a click switches to the other one -->
                 <button
                   type="button"
-                  class="search-mode-trigger"
+                  class="search-type-trigger"
                   :title="`Passer en recherche ${otherSearchLabel}`"
                   :aria-label="`Recherche ${currentSearchLabel} : passer en recherche ${otherSearchLabel}`"
                   @click="switchSearchType"
                 >
-                  <span class="search-mode-label"><span
-                    class="search-mode-switch"
+                  <span class="search-type-label"><span
+                    class="search-type-switch"
                     :class="{ 'is-on': searchType === 'fulltext' }"
                     aria-hidden="true"
-                  /><span class="search-mode-text"><span class="search-mode-long">{{ currentSearchLabel }}</span><span class="search-mode-short">{{ searchType === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
+                  /><span class="search-type-text"><span class="search-type-long">{{ currentSearchLabel }}</span><span class="search-type-short">{{ searchType === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
                 </button>
               </div>
               <!-- input -->
@@ -832,7 +832,7 @@ export default {
 
     // Whether the results shown come from a full-text search with a term
     // (hits column, documents count): set when a search runs, not as the
-    // field or the mode change, nor while the query is invalid
+    // field or the search type change, nor while the query is invalid
     const searchedWithHits = ref(isFulltextSearch.value && !!search.term.value)
 
     const searchTypeOptions = [
@@ -972,14 +972,14 @@ export default {
     const _hasResults = (_existingState?.totalCount ?? 0) > 0
 
     // A search sent from the navbar banner (AppNavbar > NavbarSearch):
-    // ?q=<term>&mode=notice|fulltext. Applied, run, then dropped from the URL
+    // ?q=<term>&searchType=notice|fulltext. Applied, run, then dropped from the URL
     // so the bar stays the only source of the query.
     const applyRouteQuery = () => {
-      const { q, mode, ...otherQuery } = route.query
-      if (q === undefined && mode === undefined) return false
+      const { q, searchType: routeSearchType, ...otherQuery } = route.query
+      if (q === undefined && routeSearchType === undefined) return false
 
-      if (mode === 'fulltext' || mode === 'notice') {
-        search.setIsFulltextSearch(mode === 'fulltext')
+      if (routeSearchType === 'fulltext' || routeSearchType === 'notice') {
+        search.setIsFulltextSearch(routeSearchType === 'fulltext')
       }
       inputTerm.value = typeof q === 'string' ? q : ''
       router.replace({ query: otherQuery, hash: route.hash })
@@ -992,7 +992,7 @@ export default {
     }
 
     // Banner search while this page is already open
-    watch(() => [route.query.q, route.query.mode], applyRouteQuery)
+    watch(() => [route.query.q, route.query.searchType], applyRouteQuery)
 
     // The sidebar sticks below the search header, whose height changes with
     // the number of active filter tags: a fixed value would be wrong from
@@ -1430,7 +1430,7 @@ tr td.chevron-up a::before {
 }
 
 /* SELECT */
-.search-mode-wrapper {
+.search-type-wrapper {
   flex: 0 0 auto;
 }
 
@@ -1665,7 +1665,7 @@ tr td.chevron-up a::before {
 /* optionnel: fusion visuelle */
 /* The search bar follows the app's buttons: --button-size, 40px, 30px
    under 768px. */
-.search-mode-trigger {
+.search-type-trigger {
   height: calc(var(--button-size) - 2px);
   border-radius: 6px 0 0 6px;
 }
@@ -1722,12 +1722,12 @@ tr td.chevron-up a::before {
   text-transform: uppercase;
 }
 /* toggle */
-.search-mode-wrapper {
+.search-type-wrapper {
   position: relative;
   display: inline-block;
 }
 
-.search-mode-trigger {
+.search-type-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1746,9 +1746,9 @@ tr td.chevron-up a::before {
   text-transform: lowercase;
 }
 
-/* Switches mode: a vertical switch, its knob down (notices) or up (full
+/* Search type switch: a vertical switch, its knob down (notices) or up (full
    text) */
-.search-mode-switch {
+.search-type-switch {
   position: relative;
   flex: none;
   width: 14px;
@@ -2194,8 +2194,8 @@ tr.row-details :deep(em),
   .search-reset-label {
     display: none;
   }
-  /* The mode selector is cramped: drop its side padding */
-  .search-mode-trigger {
+  /* The search type selector is cramped: drop its side padding */
+  .search-type-trigger {
     padding: 0 8px 0 13px;
     gap: 4px;
   }
@@ -2361,21 +2361,21 @@ tr.row-details :deep(em),
 }
 /* The switch in the label, before the text, its centre over the "Filtres"
    button's icon under the bar (13px in) */
-.search-mode-label {
+.search-type-label {
   display: flex;
   align-items: center;
   /* the text from the "Filtres" word's left edge */
   gap: 9px;
 }
 /* A capital at the start (the names stay lowercase in the titles) */
-.search-mode-text {
+.search-type-text {
   display: inline-block;
 
   &::first-letter {
     text-transform: uppercase;
   }
 }
-/* From 769px, the mode switch as wide as the "Filtres" button with its
+/* From 769px, the search type switch as wide as the "Filtres" button with its
    counter right under the bar, the switch over the button's icon, the text
    over its word. Below, the layout changes. */
 @media screen and (min-width: 769px) {
@@ -2385,7 +2385,7 @@ tr.row-details :deep(em),
   .search-form .input {
     padding-left: 32px;
   }
-  .search-mode-trigger {
+  .search-type-trigger {
     justify-content: flex-start;
     box-sizing: border-box;
     /* the "Filtres" button with a one-digit counter, minus the bar's border */
@@ -2396,14 +2396,14 @@ tr.row-details :deep(em),
 }
 /* Very narrow screens: "texte" for "plein texte", and less room around
    the clear cross */
-.search-mode-short {
+.search-type-short {
   display: none;
 }
 @media screen and (max-width: 480px) {
-  .search-mode-long {
+  .search-type-long {
     display: none;
   }
-  .search-mode-short {
+  .search-type-short {
     display: inline;
   }
   .search-clear {

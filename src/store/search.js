@@ -64,7 +64,7 @@ function createEmptySearchState() {
     loadedPage: 1,
     error: null,
 
-    // Default search mode: full text
+    // Default search type: full text
     isFulltextSearch: true,
     isResultTableMode: true,
 

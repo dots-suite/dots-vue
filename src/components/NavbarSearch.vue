@@ -6,20 +6,20 @@
     @keydown.esc="$emit('close')"
   >
     <div class="navbar-search-bar">
-      <!-- Same controls as the search page bar: a click switches mode -->
-      <div class="search-mode-wrapper">
+      <!-- Same controls as the search page bar: a click switches the search type -->
+      <div class="search-type-wrapper">
         <button
           type="button"
-          class="search-mode-trigger"
-          :title="`Passer en recherche ${otherModeLabel}`"
-          :aria-label="`Recherche ${currentModeLabel} : passer en recherche ${otherModeLabel}`"
-          @click="switchMode"
+          class="search-type-trigger"
+          :title="`Passer en recherche ${otherSearchLabel}`"
+          :aria-label="`Recherche ${currentSearchLabel} : passer en recherche ${otherSearchLabel}`"
+          @click="switchSearchType"
         >
-          <span class="search-mode-label"><span
-            class="search-mode-switch"
-            :class="{ 'is-on': mode === 'fulltext' }"
+          <span class="search-type-label"><span
+            class="search-type-switch"
+            :class="{ 'is-on': searchType === 'fulltext' }"
             aria-hidden="true"
-          /><span class="search-mode-text"><span class="search-mode-long">{{ currentModeLabel }}</span><span class="search-mode-short">{{ mode === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
+          /><span class="search-type-text"><span class="search-type-long">{{ currentSearchLabel }}</span><span class="search-type-short">{{ searchType === 'fulltext' ? 'texte' : 'notices' }}</span></span></span>
         </button>
       </div>
       <div class="navbar-search-field">
@@ -91,31 +91,31 @@ export default {
     const router = useRouter()
     const store = useStore()
 
-    const modeOptions = [
+    const searchTypeOptions = [
       { value: 'notice', text: 'notices' },
       { value: 'fulltext', text: 'plein texte' }
     ]
 
-    // Starts on the mode of the current search, like the search page bar
+    // Starts on the search type of the current search, like the search page bar
     const activeSearch = store.state.search.byProject?.[store.state.search.activeProjectId]
     // Full text by default (no search yet), as the store
-    const mode = ref((activeSearch?.isFulltextSearch ?? true) ? 'fulltext' : 'notice')
+    const searchType = ref((activeSearch?.isFulltextSearch ?? true) ? 'fulltext' : 'notice')
     const term = ref('')
     const inputEl = ref(null)
 
-    const currentModeLabel = computed(() => modeOptions.find(o => o.value === mode.value)?.text)
+    const currentSearchLabel = computed(() => searchTypeOptions.find(o => o.value === searchType.value)?.text)
 
-    const otherModeLabel = computed(() => modeOptions.find(o => o.value !== mode.value)?.text)
+    const otherSearchLabel = computed(() => searchTypeOptions.find(o => o.value !== searchType.value)?.text)
 
-    const switchMode = () => {
-      mode.value = mode.value === 'fulltext' ? 'notice' : 'fulltext'
+    const switchSearchType = () => {
+      searchType.value = searchType.value === 'fulltext' ? 'notice' : 'fulltext'
       inputEl.value?.focus()
     }
 
-    // The search page reads q and mode, runs the search, then drops them
+    // The search page reads q and searchType, runs the search, then drops them
     // Why the query cannot be searched, '' when it can (search-page.js)
     const invalidQueryMessage = computed(() =>
-      getInvalidQueryMessage(term.value, mode.value === 'fulltext')
+      getInvalidQueryMessage(term.value, searchType.value === 'fulltext')
     )
 
     const clearTerm = () => {
@@ -127,7 +127,7 @@ export default {
       if (invalidQueryMessage.value) return
       router.push({
         ...props.searchRoute,
-        query: { q: term.value.trim(), mode: mode.value }
+        query: { q: term.value.trim(), searchType: searchType.value }
       })
       emit('close')
     }
@@ -135,13 +135,13 @@ export default {
     onMounted(() => inputEl.value?.focus())
 
     return {
-      modeOptions,
-      mode,
+      searchTypeOptions,
+      searchType,
       term,
       inputEl,
-      currentModeLabel,
-      otherModeLabel,
-      switchMode,
+      currentSearchLabel,
+      otherSearchLabel,
+      switchSearchType,
       invalidQueryMessage,
       clearTerm,
       submit
@@ -186,12 +186,12 @@ export default {
 
 /* ===== Search page bar controls (SearchPage.vue) ===== */
 
-.search-mode-wrapper {
+.search-type-wrapper {
   position: relative;
   flex: none;
 }
 
-.search-mode-trigger {
+.search-type-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -209,9 +209,9 @@ export default {
   cursor: pointer;
 }
 
-/* Switches mode: a vertical switch, its knob down (notices) or up (full
+/* Search type switch: a vertical switch, its knob down (notices) or up (full
    text) */
-.search-mode-switch {
+.search-type-switch {
   position: relative;
   flex: none;
   width: 14px;
@@ -381,8 +381,8 @@ export default {
     height: 56px;
     gap: 12px;
   }
-  /* The mode selector is cramped: drop its side padding (as SearchPage) */
-  .search-mode-trigger {
+  /* The search type selector is cramped: drop its side padding (as SearchPage) */
+  .search-type-trigger {
     padding: 0 8px 0 13px;
     gap: 4px;
   }
@@ -443,21 +443,21 @@ export default {
 }
 /* The switch in the label, before the text, its centre over the "Filtres"
    button's icon under the bar (13px in) */
-.search-mode-label {
+.search-type-label {
   display: flex;
   align-items: center;
   /* the text from the "Filtres" word's left edge */
   gap: 9px;
 }
 /* A capital at the start (the names stay lowercase in the titles) */
-.search-mode-text {
+.search-type-text {
   display: inline-block;
 
   &::first-letter {
     text-transform: uppercase;
   }
 }
-/* From 769px, the mode switch as wide as the "Filtres" button with its
+/* From 769px, the search type switch as wide as the "Filtres" button with its
    counter right under the bar, the switch over the button's icon, the text
    over its word. Below, the layout changes. */
 @media screen and (min-width: 769px) {
@@ -467,7 +467,7 @@ export default {
   .input {
     padding-left: 32px;
   }
-  .search-mode-trigger {
+  .search-type-trigger {
     justify-content: flex-start;
     box-sizing: border-box;
     /* the "Filtres" button with a one-digit counter, minus the bar's border */
@@ -478,14 +478,14 @@ export default {
 }
 /* Very narrow screens: "texte" for "plein texte", and less room around
    the clear cross */
-.search-mode-short {
+.search-type-short {
   display: none;
 }
 @media screen and (max-width: 480px) {
-  .search-mode-long {
+  .search-type-long {
     display: none;
   }
-  .search-mode-short {
+  .search-type-short {
     display: inline;
   }
   .search-clear {
