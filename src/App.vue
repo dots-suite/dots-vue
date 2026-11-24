@@ -564,8 +564,8 @@ export default {
             document.title =
               appConfig.value.collectionsConf.find(
                 coll => coll.collectionId === collectionIdFromStore
-              )?.homePageSettings.appNavBar.collectionShortTitle
-              || rootCollConfig.value?.homePageSettings?.appNavBar.collectionShortTitle
+              )?.homePageSettings?.appNavBar?.collectionShortTitle
+              || rootCollConfig.value?.homePageSettings?.appNavBar?.collectionShortTitle
           }
 
       } catch (error) {
@@ -651,6 +651,26 @@ export default {
               store.commit('setResourceId', newParams.id)
             //or directly if available
             } else if (newParams.collId) {
+              // Only projects have a page (the TOC links nothing else, see canNavigate):
+              // a sub-collection URL (/eneide) goes to its project's (/miroir)
+              if (newParams.collId !== rootCollectionIdentifier.value) {
+                let projectId = null
+                try {
+                  projectId = await getProjectFromApi(newParams.collId)
+                } catch {
+                  // unknown collection: left to the usual resolution and its redirect
+                }
+                if (projectId && projectId !== newParams.collId && projectId !== rootCollectionIdentifier.value) {
+                  // Not awaited: this run ends (finally) before the redirected route's run starts
+                  router.replace({
+                    name: newName,
+                    params: { ...newParams, collId: projectId },
+                    query: route.query,
+                    hash: route.hash
+                  })
+                  return
+                }
+              }
               store.commit('setCollectionId', null)
               store.commit('setCurrentItem', {})
               collectionId.value = newParams.collId
