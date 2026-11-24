@@ -338,23 +338,24 @@ export default {
           item => item.citeType === 'Collection' || item['@type'] === 'Collection'
       )
 
-      for (const comp of collections) {
-        const conf = appConfig.value.collectionsConf.find(c => c.collectionId === comp.identifier)
-
+      const toOpen = collections.filter(comp => {
         if (displayOpt.value === 'toc') {
           // Lower levels of Cards are unavailable by design and Lists are not hierarchy objects
-          if (conf?.homePageSettings?.listSection?.openState) {
-            await toggleExpanded(comp)
-            // wait next render
-            await nextTick()
-          }
-        } else if (displayOpt.value === 'mixed' && displayMode.value === 'mixed') {
-          // Lower levels of Mixed mode are opened by default
-          await toggleExpanded(comp)
-          // wait next render
-          await nextTick()
+          const conf = appConfig.value.collectionsConf.find(c => c.collectionId === comp.identifier)
+          return Boolean(conf?.homePageSettings?.listSection?.openState)
         }
-      }
+        // Lower levels of Mixed mode are opened by default
+        return displayOpt.value === 'mixed' && displayMode.value === 'mixed'
+      })
+      if (!toOpen.length) return
+
+      // Opened together: each opening costs two chained DTS requests (collection, then its
+      // parents), so one after the other the time grew with the number of sub-collections
+      await Promise.all(toOpen.map(comp => toggleExpanded(comp)))
+      // As when they were opened in order: the last one is the selected parent
+      selectedParent.value = toOpen[toOpen.length - 1].identifier || toOpen[toOpen.length - 1]['@id']
+      // wait next render
+      await nextTick()
     }
 
     // DISPLAY OPTIONS
