@@ -1,5 +1,8 @@
 <template>
-  <div class="document wrapper">
+  <div
+    class="document wrapper"
+    @click="openImageLightbox"
+  >
     <div
       class="row"
       :class="currentLevelIndicator === 'renderToc' ? 'document-description' : ''"
@@ -51,6 +54,7 @@
         :key="parentId"
       />
     </div>
+    <ImageLightbox ref="imageLightbox" />
   </div>
 </template>
 
@@ -61,12 +65,14 @@ import { findFacsimile } from '@/composables/iiif-manifest'
 import { getCoverDataFromApi, getDocumentFromApi } from '@/api/document'
 import { useRoute } from 'vue-router'
 import TOC from '@/components/TOC.vue'
+import ImageLightbox from '@/components/ImageLightbox.vue'
 import { useStore } from 'vuex'
 
 export default {
   name: 'DocumentSource',
   components: {
-    TOC
+    TOC,
+    ImageLightbox
   },
 
   props: ['id', 'level', 'editoriallevel', 'bottomtoc', 'maxcitedepth', 'documenttype', 'editorialLevelIndicator', 'isDocProjectIdIncluded', 'mediaTypeEndpoint', 'renderer', 'projectIdentifier', 'iiifManifests'],
@@ -716,6 +722,26 @@ export default {
 
 
 
+    // A click on a figure image of the text opens it enlarged, with the other images of its figure.
+    // DoTS wraps each image in an anchor to itself (<a id="graphic4" href="#graphic4">): those
+    // anchors give way to the lightbox; links to elsewhere and page breaks keep their behaviour.
+    const imageLightbox = ref(null)
+    const isLightboxImage = img =>
+      !img.closest('a[href]:not([href^="#"]), figcaption, .pb-component, .image-lightbox')
+    function openImageLightbox (event) {
+      const img = event.target.closest('figure img')
+      if (!img || !isLightboxImage(img)) return
+      event.preventDefault()
+      const figure = img.closest('figure')
+      const figureImages = Array.from(figure.querySelectorAll('img')).filter(isLightboxImage)
+      const caption = figure.querySelector(':scope > figcaption')?.textContent.trim() ?? ''
+      imageLightbox.value?.open(
+        figureImages.map(i => ({ src: i.currentSrc || i.src, alt: i.alt })),
+        figureImages.indexOf(img),
+        caption
+      )
+    }
+
     watch(props, (newProps) => {
       manifests.value = newProps.iiifManifests ?? []
       mediaType.value = newProps.mediaTypeEndpoint
@@ -731,6 +757,8 @@ export default {
       asideTOC,
       customDocument,
       scrollTo,
+      imageLightbox,
+      openImageLightbox,
     }
   }
 }

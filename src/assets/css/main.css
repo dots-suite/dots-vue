@@ -699,8 +699,22 @@ p.header-baseline span {
 
 /* Notes */
 
+/* Figure images: capped to the column width and 40vh, ratio kept, centred by the figure's text-align */
 .document-views figure img {
-    width: 100%;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 40vh;
+    object-fit: contain;
+    display: inline-block;
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+/* Clickable: Document.vue opens it in the ImageLightbox, except in links to elsewhere and page breaks
+   (the anchors DoTS puts around each image, href="#graphicN", do not count) */
+.document-views figure img:not(a[href]:not([href^="#"]) img, figcaption img, .pb-component img) {
+    cursor: zoom-in;
 }
 
 /* Notes */
