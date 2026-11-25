@@ -1,7 +1,7 @@
-import { onUnmounted } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import Mirador from 'mirador'
 import { miradorImageToolsPlugin } from 'mirador-image-tools'
-import { getManifestId } from '@/composables/iiif-manifest'
+import { getCanvases, getManifestId } from '@/composables/iiif-manifest'
 
 export default function useMirador(container) {
   const _windowId = 'document'
@@ -40,7 +40,13 @@ export default function useMirador(container) {
     }
   }
 
+  // An image shown in the window failed to load (its info.json): the manifest is there,
+  // the image server is not. DocumentPage shows a message over the viewer.
+  const imageError = ref(false)
+
   const instance = {
+    imageError,
+    retryImages,
     initialize,
     loadManifest,
     receiveManifests,
@@ -104,7 +110,29 @@ export default function useMirador(container) {
     // la réentrance, `dispatch` depuis un abonné rappelant les abonnés.
     const handled = new Set()
 
+    // Recomputed only when what it depends on changes: the subscriber runs on every dispatch
+    let watched = []
+    let watchedVisible = null
+    const updateImageError = (state) => {
+      const window = state.windows?.[_windowId]
+      const manifest = window && state.manifests?.[window.manifestId]?.json
+      const next = [state.infoResponses, window, manifest]
+      if (next.every((item, index) => item === watched[index])) return
+      watched = next
+
+      const visibleIds = visibleServiceIds(state)
+      imageError.value = visibleIds.some((id) => state.infoResponses?.[id]?.error)
+
+      // Other canvases shown: the failures of those left are forgotten, so that coming back asks again
+      const visibleKey = visibleIds.join()
+      if (visibleKey !== watchedVisible) {
+        watchedVisible = visibleKey
+        forgetFailedImages(visibleIds)
+      }
+    }
+
     unsubscribeErrors = instance.miradorStore.subscribe(() => {
+      updateImageError(instance.miradorStore.getState())
       const { errors } = instance.miradorStore.getState()
       const ids = errors?.items ?? []
 
@@ -123,6 +151,40 @@ export default function useMirador(container) {
         instance.miradorStore.dispatch(Mirador.actions.removeError(id))
       })
     })
+  }
+
+  const trimmed = (id) => id?.replace(/\/$/, '')
+
+  // Image services (info.json ids) of the canvases shown in the window
+  function visibleServiceIds(state) {
+    const window = state.windows?.[_windowId]
+    const manifest = window && state.manifests?.[window.manifestId]?.json
+    if (!manifest) return []
+    const visible = window.visibleCanvases?.length ? window.visibleCanvases : [window.canvasId]
+    return getCanvases(manifest)
+      .filter(({ id, serviceId }) => serviceId && visible.includes(id))
+      .map(({ serviceId }) => trimmed(serviceId))
+  }
+
+  // Mirador asks for an image (info.json) only when it holds no response for it, a failed one
+  // included: forgetting a failure lets the next display of its canvas ask again.
+  // Not a retry: Mirador asks again only when the reader shows the canvas again.
+  function forgetFailedImages(kept = []) {
+    const { infoResponses = {} } = instance.miradorStore?.getState() ?? {}
+    Object.entries(infoResponses)
+      .filter(([id, response]) => response?.error && !kept.includes(id))
+      .forEach(([id]) => dispatchAction(Mirador.actions.removeInfoResponse(id)))
+  }
+
+  // The viewer shown again (images mode): its canvas asks again for an image that failed
+  function retryImages() {
+    const state = instance.miradorStore?.getState()
+    const window = state?.windows?.[_windowId]
+    if (!window) return
+    const failed = visibleServiceIds(state).filter((id) => state.infoResponses?.[id]?.error)
+    if (!failed.length) return
+    forgetFailedImages()
+    dispatchAction(Mirador.actions.setCanvas(_windowId, window.canvasId))
   }
 
   function updateThemeColor(color) {
@@ -222,6 +284,7 @@ export default function useMirador(container) {
       return
     }
 
+    forgetFailedImages()
     const stateBefore = instance.miradorStore.getState()
 
 
@@ -250,6 +313,7 @@ export default function useMirador(container) {
   }
 
   function setCanvasId(canvasId) {
+    forgetFailedImages()
     dispatchAction(Mirador.actions.setCanvas(_windowId, canvasId))
     resetView()
   }

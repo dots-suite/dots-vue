@@ -495,6 +495,14 @@
             id="vue-mirador-container"
             ref="miradorContainer"
           />
+          <!-- The manifest loaded but not the image of this canvas (its IIIF image server) -->
+          <p
+            v-if="miradorImageError"
+            class="mirador-image-error"
+            role="status"
+          >
+            Image IIIF temporairement indisponible. Réessayer ultérieurement.
+          </p>
         </div>
       </div>
     </div>
@@ -879,6 +887,7 @@ export default {
 
 
     const miradorInstance = useMirador(miradorContainer)
+    const miradorImageError = miradorInstance.imageError
     // provide an uninitialized instance of Mirador
     provide('mirador', miradorInstance)
     provide('manifests-by-url', manifestsByUrl)
@@ -1770,6 +1779,8 @@ export default {
 
         if (entersImageMode) {
           nextTick(() => {
+            // An image that failed is asked again now that the viewer is shown again
+            miradorInstance.retryImages()
             miradorInstance.resetView()
           })
         }
@@ -2029,6 +2040,7 @@ export default {
       viewModeCssClass: layout.viewModeCssClass,
       miradorViewCssStyle,
       miradorContainer,
+      miradorImageError,
       breadcrumbEl,
       crumbsWithEllipsis,
       collCrumbsWithEllipsis,
@@ -2409,6 +2421,24 @@ export default {
   width: calc(100% - 300px - 10px);
 }
 
+/* Over the viewer, which stays usable around it (other canvases, manifests) */
+.mirador-image-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 10;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 40px);
+  margin: 0;
+  padding: 12px 20px;
+  border: 1px solid var(--fill-color);
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: var(--fill-color);
+  font-size: 0.95rem;
+  text-align: center;
+  pointer-events: none;
+}
 .mirador-view {
   position: relative;
   height: calc(100dvh - 80px);
