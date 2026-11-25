@@ -341,11 +341,11 @@
           <button
             type="button"
             class="dots-button images-btn"
-            :class="{ disabled: manifestStatus === 'error', [`is-${manifestStatus}`]: !manifestIsAvailable }"
+            :class="{ disabled: manifestStatus === 'error', [`is-${manifestStatus}`]: manifestStatus !== 'ready' }"
             :disabled="!manifestIsAvailable"
             :aria-busy="manifestStatus === 'loading'"
-            :aria-label="{ loading: 'Images en cours de chargement', error: 'Images indisponibles : la source ne répond pas' }[manifestStatus] ?? 'Images seules'"
-            :title="manifestStatus === 'error' ? 'Images indisponibles : la source ne répond pas' : null"
+            :aria-label="{ loading: 'Images en cours de chargement', error: 'Sources IIIF temporairement indisponibles', partial: 'Images seules (certaines sources IIIF temporairement indisponibles)' }[manifestStatus] ?? 'Images seules'"
+            :title="{ error: 'Sources IIIF temporairement indisponibles', partial: 'Certaines sources IIIF temporairement indisponibles' }[manifestStatus] ?? null"
             @click="changeViewMode('images-mode')"
           >
             <IconImage
@@ -359,22 +359,16 @@
               aria-hidden="true"
             />
             <svg
-              v-else-if="manifestStatus === 'error'"
+              v-else-if="manifestStatus === 'error' || manifestStatus === 'partial'"
               class="images-btn-error"
-              viewBox="0 0 24 24"
+              viewBox="8 0 8 24"
               aria-hidden="true"
             >
+              <!-- A bold exclamation mark in the bottom right corner of the button, right of the camera -->
               <path
-                d="M12 2.5 23 21.5H1Z"
-                fill="#F2B705"
-                stroke="#1A1A1A"
-                stroke-width="1.5"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M12 9v6M12 17.6v.4"
-                stroke="#1A1A1A"
-                stroke-width="2.2"
+                class="images-btn-error-mark"
+                d="M12 4v10M12 20v.01"
+                stroke-width="4.5"
                 stroke-linecap="round"
               />
             </svg>
@@ -464,7 +458,7 @@
             :bottomtoc="bottomTOC"
             :maxcitedepth="TOC_DEPTH"
             @has-notes="hasNotes = $event"
-            @first-manifest="textManifestUrl = $event"
+            @text-facsimiles="textFacsimiles = $event"
           />
         </div>
         <div
@@ -488,7 +482,7 @@
             :bottomtoc="bottomTOC"
             :maxcitedepth="TOC_DEPTH"
             @has-notes="hasNotes = $event"
-            @first-manifest="textManifestUrl = $event"
+            @text-facsimiles="textFacsimiles = $event"
           />
         </div>
         <div
@@ -520,7 +514,7 @@ import _ from 'lodash'
 import { useStore } from 'vuex'
 import useMirador from '@/composables/use-mirador'
 import { getMetadataFromApi, getParentFromApi, getTOCFromApi, getAncestors } from '@/api/document'
-import { fetchManifest, getCanvases, getManifestUrls } from '@/composables/iiif-manifest'
+import { fetchManifest, findFacsimile, getCanvases, getManifestUrls } from '@/composables/iiif-manifest'
 
 import {
   computed,
@@ -599,13 +593,36 @@ export default {
     const docProjectId = ref('')
     const appConfig = computed(() => props.applicationConfig)
     const collConfig = computed(() => props.collectionConfig)
-    // none (no dots:resourceIIIFManifest), loading, ready or error
+    // none (no dots:resourceIIIFManifest), loading, ready, partial (some manifests of the text failed,
+    // others are there) or error
     const manifestStatus = ref('none')
-    const manifestIsAvailable = computed(() => manifestStatus.value === 'ready')
+    const manifestIsAvailable = computed(() => ['ready', 'partial'].includes(manifestStatus.value))
     const manifest = shallowRef(null)
     // Every manifest of the displayed item, [{ url, data }]; manifest is the one opened in Mirador
     const manifests = shallowRef([])
-    const textManifestUrl = ref(null)
+    // The facsimiles of the text, in its order, [{ image, manifestUrl }] (Document.vue)
+    const textFacsimiles = shallowRef([])
+    // The manifests they cite (data-manifest), in the same order
+    const textManifestUrls = computed(() => [...new Set(textFacsimiles.value.map(({ manifestUrl }) => manifestUrl).filter(Boolean))])
+    // Each declared manifest as soon as it settles, { [url]: { status: loading | ready | error, data } }:
+    // a facsimile icon of the text (PageBreak) follows its own manifest, not the slowest one
+    const manifestsByUrl = shallowRef({})
+    const setManifestState = (url, state) => {
+      manifestsByUrl.value = { ...manifestsByUrl.value, [url]: state }
+    }
+    const trackManifest = (url) => {
+      if (manifestsByUrl.value[url]?.status !== 'ready') setManifestState(url, { status: 'loading' })
+      return fetchManifest(url).then(
+        (data) => {
+          setManifestState(url, { status: 'ready', data })
+          return data
+        },
+        (error) => {
+          setManifestState(url, { status: 'error' })
+          throw error
+        }
+      )
+    }
     const resourceManifest = ref(null)
     const resourceManifests = shallowRef([])
     const miradorContainer = ref(null)
@@ -864,6 +881,7 @@ export default {
     const miradorInstance = useMirador(miradorContainer)
     // provide an uninitialized instance of Mirador
     provide('mirador', miradorInstance)
+    provide('manifests-by-url', manifestsByUrl)
 
     const layout = inject('variable-layout')
 
@@ -1595,7 +1613,7 @@ export default {
     // Those that fail are left out: the others remain usable
     const loadManifests = async (declared) => {
       const urls = getManifestUrls(declared)
-      const results = await Promise.allSettled(urls.map(fetchManifest))
+      const results = await Promise.allSettled(urls.map(trackManifest))
 
       return results.flatMap((result, index) => {
         if (result.status === 'fulfilled') return [{ url: urls[index], data: result.value }]
@@ -1615,24 +1633,49 @@ export default {
       resourceManifest.value = resourceManifests.value[0].data
     }
 
-    // Opens the manifest of the first image of the text, as soon as it is known
+    // The first manifest of the text that loaded, in the order of the text; else the first one loaded
+    const textManifest = (loaded) =>
+      textManifestUrls.value.map((url) => loaded.find((item) => item.url === url)).find(Boolean) ?? loaded[0]
+
+    // partial when a manifest of the text failed (or, when it cites none, any of the item)
+    const settledStatus = () => {
+      const cited = textManifestUrls.value.filter((url) => manifestsByUrl.value[url])
+      const urls = cited.length ? cited : Object.keys(manifestsByUrl.value)
+      return urls.some((url) => manifestsByUrl.value[url].status === 'error') ? 'partial' : 'ready'
+    }
+
+    // In that manifest, the canvas of the first facsimile of the text it has; else its first canvas
+    const textCanvasId = (entry) => {
+      for (const { image, manifestUrl } of textFacsimiles.value) {
+        const facsimile = findFacsimile([entry], image, manifestUrl)
+        if (facsimile) return facsimile.canvasId
+      }
+      return getCanvases(entry.data)[0]?.id
+    }
+
+    // Opens the first manifest of the text that loaded, on the first canvas the text cites in it
+    let openedCanvasId = null
     const showManifests = (loaded) => {
-      const { data } = loaded.find(({ url }) => url === textManifestUrl.value) ?? loaded[0]
+      const entry = textManifest(loaded)
+      const canvasId = textCanvasId(entry)
 
       manifests.value = loaded
-      manifest.value = data
-      manifestStatus.value = 'ready'
+      manifest.value = entry.data
+      openedCanvasId = canvasId
+      manifestStatus.value = settledStatus()
 
       if (miradorInstance.miradorStore) {
         miradorInstance.receiveManifests(loaded.map((item) => item.data))
-        miradorInstance.loadManifest(data, getCanvases(data)[0]?.id)
+        miradorInstance.loadManifest(entry.data, canvasId)
       }
     }
 
-    watch(textManifestUrl, (url) => {
-      const entry = manifests.value.find((item) => item.url === url)
-
-      if (entry && entry.data !== manifest.value) showManifests(manifests.value)
+    // The text may be built after the manifests settled
+    watch(textFacsimiles, () => {
+      if (!manifests.value.length) return
+      const entry = textManifest(manifests.value)
+      if (entry.data !== manifest.value || textCanvasId(entry) !== openedCanvasId) showManifests(manifests.value)
+      else if (manifestIsAvailable.value) manifestStatus.value = settledStatus()
     })
 
     let _currentLoadId = 0
@@ -1736,6 +1779,7 @@ export default {
     watch(
       () => metadata.value?.extensions?.['dots:resourceIIIFManifest'],
       async (newVal) => {
+        manifestsByUrl.value = {}
 
         if (!newVal) {
           layout.imageIsAvailable.value = false
@@ -2006,7 +2050,8 @@ export default {
       manifestStatus,
       manifest,
       manifests,
-      textManifestUrl,
+      textManifestUrls,
+      textFacsimiles,
       resourceId,
       collection,
       isDocProjectIdInc,
@@ -2216,12 +2261,7 @@ export default {
 .controls .images-btn {
   position: relative;
 }
-/* Like an app being installed on iOS: a veil, and a disc that fills over and over */
-@property --images-btn-progress {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
+/* Like an app being installed on iOS: a veil, and a disc that fills over and over (main.css) */
 .images-btn-progress {
   position: absolute;
   inset: 0;
@@ -2240,29 +2280,40 @@ export default {
     border: 2px solid rgba(255, 255, 255, 0.95);
     border-radius: 50%;
     background:
-      conic-gradient(rgba(255, 255, 255, 0.95) var(--images-btn-progress), transparent 0)
+      conic-gradient(rgba(255, 255, 255, 0.95) var(--loading-progress), transparent 0)
       content-box;
     padding: 2px;
-    animation: images-btn-fill 2.4s ease-in-out infinite;
+    animation: loading-fill 2.4s ease-in-out infinite;
   }
-}
-@keyframes images-btn-fill {
-  from { --images-btn-progress: 0deg; }
-  to { --images-btn-progress: 360deg; }
 }
 @media (prefers-reduced-motion: reduce) {
   .images-btn-progress::before {
     animation-duration: 6s;
   }
 }
+/* In the bottom right corner, in the space right of the camera (which ends at 33/42 of the icon):
+   in the collection colour, white when the button is filled with it */
 .images-btn-error {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
+  /* From the bottom: the same gap (about 1px) between its dot and the 1px border of the button,
+     whatever the button size (40px, 30px under 768px) */
+  bottom: 1px;
+  right: 1.5px;
+  width: 6px;
+  height: 18px;
+  color: var(--fill-color);
   pointer-events: none;
+}
+.images-btn:has(.icon-wrapper.active) .images-btn-error {
+  color: #fff;
+}
+@media (hover: none) {
+  .images-btn:active .images-btn-error {
+    color: #fff;
+  }
+}
+.images-btn-error-mark {
+  stroke: currentColor;
 }
 .controls button:focus-visible {
   outline: 2px solid #B9192F;

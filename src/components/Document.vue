@@ -76,7 +76,7 @@ export default {
   },
 
   props: ['id', 'level', 'editoriallevel', 'bottomtoc', 'maxcitedepth', 'documenttype', 'editorialLevelIndicator', 'isDocProjectIdIncluded', 'mediaTypeEndpoint', 'renderer', 'projectIdentifier', 'iiifManifests'],
-  emits: ['has-notes', 'first-manifest'],
+  emits: ['has-notes', 'text-facsimiles'],
 
   async setup (props, { emit }) {
     // Declare route to capture route hash (used in scrollTo()) to display selected Table Of Content items below the editorial level
@@ -178,7 +178,6 @@ export default {
 
       // Generate PageBreak components for each iiif canvas link encoded in the DoTS response
 
-      emit('first-manifest', tmpDom.querySelector('[data-manifest]')?.getAttribute('data-manifest') ?? null)
 
       const pageBreakProps = ({ manifestId, canvasId, canvasNum, firstCanvasId }) =>
         `manifest-id="${manifestId}" canvas-id="${canvasId}" canvas-num="${canvasNum}" first-canvas-id="${firstCanvasId}"`
@@ -191,93 +190,61 @@ export default {
       builtManifestsKey = manifestsKey()
       isDocumentBuilt = true
 
-      if (mediaType.value === 'html' && manifests.value.length && Array.isArray(renderer.value.facsimiles)) {
+      // HTML: each facsimile becomes a page break that follows its own manifest (data-manifest)
+      // by itself, without rebuilding the document: a loading disc while it loads, the
+      // thumbnail once it is there, a failure sign if it fails. The original element stays
+      // inside it, shown again when no manifest has its image.
+      const toPageBreak = (current, imageUrl, manifestUrl) => {
+        const pageBreak = tmpDom.ownerDocument.createElement('page-break')
+        pageBreak.setAttribute('image', imageUrl ?? '')
+        if (manifestUrl) pageBreak.setAttribute('manifest-url', manifestUrl)
+        current.replaceWith(pageBreak)
+        pageBreak.append(current)
+      }
+      // We only add one thumbnail (page-break component) for each line group (lg), and we select the first one:
+      // the first facsimile, or the first one after something else than a page break, becomes one; the facsimiles
+      // that follow a page break directly are removed
+      const toPageBreaks = (facsimiles, imageOf) => {
+        for (const current of facsimiles) {
+          if (current.previousElementSibling?.tagName === 'PAGE-BREAK') {
+            current.remove()
+          } else {
+            toPageBreak(current, imageOf(current), current.getAttribute('data-manifest'))
+          }
+        }
+      }
+
+      if (mediaType.value === 'html' && Array.isArray(renderer.value.facsimiles)) {
         // Facsimile links of the renderer output, declared in renderer.facsimiles:
         // selector targets the link, image says where its IIIF image URL is.
         // When declared, they replace the default handling below.
         for (const { selector, image = {} } of renderer.value.facsimiles) {
-          const facsimiles = Array.from(tmpDom.querySelectorAll(selector))
-          for (let i = 0; i < facsimiles.length; i++) {
-            const previous = facsimiles[i - 1]
-            const current = facsimiles[i]
-            // We only add one thumbnail (page-break component) for each line group (lg), and we select the first one. To achieve this:
-            // 1. check if there is a previous facsimile (if not, this is the first one) -> creating page-break component
-            // 2. check if there is a previous sibling (if not, this is the first facsimile of the current lb) -> creating page-break component
-            // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first facsimile of the current lb) -> creating page-break component
-            if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
-              const source = image.selector ? current.querySelector(image.selector) : current
-              const imageUrl = source?.getAttribute(image.attribute ?? 'href')
-              const facsimile = findFacsimile(manifests.value, imageUrl, current.getAttribute('data-manifest'))
-              // An image missing from the manifest leaves the facsimile as it is
-              if (!facsimile) {
-                console.warn(`Document: facsimile image not in the manifest: ${imageUrl}`)
-                continue
-              }
-              const container = document.createElement('div')
-              container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${imageUrl}"/>`
-              // Replace the link with a PageBreak component
-              current.parentNode.replaceChild(container.firstChild, current)
-            } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
-              current.parentNode.removeChild(current)
-            }
-          }
+          toPageBreaks(Array.from(tmpDom.querySelectorAll(selector)), (current) => {
+            const source = image.selector ? current.querySelector(image.selector) : current
+            return source?.getAttribute(image.attribute ?? 'href')
+          })
         }
-      } else if (mediaType.value === 'html' && manifests.value.length) {
+      } else if (mediaType.value === 'html') {
         // Default handling, without renderer.facsimiles: hteiml page links and line group figures
-        const allPageBeginning = Array.from(tmpDom.querySelectorAll('a.pb[href*="iiif"]'))
-        for (let i = 0; i < allPageBeginning.length; i++) {
-          const previous = allPageBeginning[i - 1]
-          const current = allPageBeginning[i]
-          // We only add one thumbnail (page-break component) for each line group (lg), and we select the first one. To achieve this:
-          // 1. check if there is a previous pb (if not, this is the first one) -> creating page-break component
-          // 2. check if there is a previous sibling (if not, this is the first pb of the current lb) -> creating page-break component
-          // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first pb of the current lb) -> creating page-break component
-          if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
-            const facsimile = findFacsimile(manifests.value, current.href, current.getAttribute('data-manifest'))
-            // An image missing from the manifest leaves the facsimile as it is
-            if (!facsimile) {
-              console.warn(`Document: facsimile image not in the manifest: ${current.href}`)
-              continue
-            }
-            const container = document.createElement('div')
-            container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${current.href}"/>`
-            // Replace the link with a PageBreak component
-            current.parentNode.replaceChild(container.firstChild, current)
-          } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
-            current.parentNode.removeChild(current)
-          }
-        }
-        const allFigures = Array.from(tmpDom.querySelectorAll('.lg figure'))
-        for (let i = 0; i < allFigures.length; i++) {
-          const previous = allFigures[i - 1]
-          const current = allFigures[i]
-          // We only add one thumbnail (page-break component) for each line group (lg), and we select the first one. To achieve this:
-          // 1. check if there is a previous figure (if not, this is the first one) -> selecting the first img only and creating page-break component
-          // 2. check if there is a previous sibling (if not, this is the first figure of the current lb) -> selecting the first img only and creating page-break component
-          // 3. if there is a previous sibling, check that it is not a page-break (if not, this is the first figure of the current lb) -> selecting the first img only and creating page-break component
-          if (!previous || !current.previousElementSibling || (current.previousElementSibling && current.previousElementSibling.tagName !== 'PAGE-BREAK')) {
-            const facsimile = findFacsimile(manifests.value, current.querySelectorAll('a img')[0].src)
-            // An image missing from the manifest leaves the facsimile as it is
-            if (!facsimile) {
-              console.warn(`Document: facsimile image not in the manifest: ${current.querySelectorAll('a img')[0].src}`)
-              continue
-            }
-            const container = document.createElement('div')
-            container.innerHTML = `<page-break ${pageBreakProps(facsimile)} image="${current.querySelectorAll('a img')[0].src}"/>`
-            // Replace the link with a PageBreak component
-            current.parentNode.replaceChild(container.firstChild, current)
-          } else if (current.previousElementSibling && current.previousElementSibling.tagName === 'PAGE-BREAK') {
-            current.parentNode.removeChild(current)
-          }
-        }
+        toPageBreaks(Array.from(tmpDom.querySelectorAll('a.pb[href*="iiif"]')), (current) => current.href)
+        toPageBreaks(Array.from(tmpDom.querySelectorAll('.lg figure')), (current) => current.querySelector('a img')?.src)
       }
+
+      // The facsimiles of the text, in its order, [{ image, manifestUrl }]: the text decides
+      // which manifest the viewer opens, and on which canvas
+      emit('text-facsimiles', Array.from(tmpDom.querySelectorAll('page-break'), (pageBreak) => ({
+        image: pageBreak.getAttribute('image') ?? '',
+        manifestUrl: pageBreak.getAttribute('manifest-url') ?? ''
+      })))
 
       // A page break alone on its table row announces the next row: moved there, its icon is centred on that row
       if (mediaType.value === 'html') {
         for (const pageBreak of tmpDom.querySelectorAll('tr page-break')) {
           const row = pageBreak.closest('tr')
           const nextCell = row.nextElementSibling?.querySelector('td')
-          if (nextCell && !row.textContent.trim()) nextCell.prepend(pageBreak)
+          const rowText = row.cloneNode(true)
+          rowText.querySelectorAll('page-break').forEach((kept) => kept.remove())
+          if (nextCell && !rowText.textContent.trim()) nextCell.prepend(pageBreak)
         }
       }
 
@@ -434,6 +401,8 @@ export default {
     // The text does not wait for the manifest, which depends on an external
     // server. When it comes afterwards, the facsimile links become thumbnails.
     watch(manifestsKey, (key) => {
+      // HTML page breaks follow their manifest by themselves (PageBreak)
+      if (mediaType.value !== 'tei') return
       if (!key || !isDocumentBuilt || !hasFacsimiles || key === builtManifestsKey) return
 
       savedScrollY = window.scrollY

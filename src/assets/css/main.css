@@ -1317,3 +1317,16 @@ cite.title {
 
  -> see PART 2: CUSTOM RULES in tei.css
  =============================================================*/
+
+/* Loading disc that fills over and over, like an app being installed on iOS:
+   the images button while the manifest loads (DocumentPage), and the facsimile
+   icons waiting for it (PageBreak) */
+@property --loading-progress {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+@keyframes loading-fill {
+    from { --loading-progress: 0deg; }
+    to { --loading-progress: 360deg; }
+}
