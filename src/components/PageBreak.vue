@@ -22,12 +22,36 @@
           :aria-label="{ pending: 'Image en cours de chargement', error: 'Source IIIF temporairement indisponible' }[state] ?? 'Afficher l\'image'"
           @click.prevent="goToCanvas($event)"
         />
-        <!-- Its manifest loads: the loading disc of the images button -->
-        <span
+        <!-- Its manifest loads: the loading disc of the images button. Ring and sector are drawn
+             in one SVG, so that they stay concentric whatever the sub-pixel position of the icon
+             (a border is snapped to the pixel grid, a background is not) -->
+        <svg
           v-if="state === 'pending'"
           class="pb-thumbnail-progress"
+          viewBox="0 0 14 14"
           aria-hidden="true"
-        />
+        >
+          <circle
+            cx="7"
+            cy="7"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
+          <!-- The sector: a circle whose stroke is as wide as its diameter, drawn from the top, clockwise -->
+          <circle
+            class="pb-thumbnail-progress-sector"
+            cx="7"
+            cy="7"
+            r="2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="4"
+            pathLength="100"
+            transform="rotate(-90 7 7)"
+          />
+        </svg>
         <!-- Its manifest failed: the exclamation mark of the images button -->
         <svg
           v-else-if="state === 'error'"
@@ -295,22 +319,19 @@ export default {
   display: block;
   width: 14px;
   height: 14px;
-}
-.pb-thumbnail-progress::before {
-  content: "";
-  display: block;
-  width: 14px;
-  aspect-ratio: 1;
-  box-sizing: border-box;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  background: conic-gradient(currentColor var(--loading-progress), transparent 0) content-box;
-  padding: 1.5px;
   color: var(--fill-color);
-  animation: loading-fill 2.4s ease-in-out infinite;
+}
+/* Fills over and over, at the pace of the images button's disc (loading-fill, main.css) */
+.pb-thumbnail-progress-sector {
+  stroke-dasharray: 0 100;
+  animation: pb-thumbnail-progress-fill 2.4s ease-in-out infinite;
+}
+@keyframes pb-thumbnail-progress-fill {
+  from { stroke-dasharray: 0 100; }
+  to { stroke-dasharray: 100 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pb-thumbnail-progress::before {
+  .pb-thumbnail-progress-sector {
     animation-duration: 6s;
   }
 }

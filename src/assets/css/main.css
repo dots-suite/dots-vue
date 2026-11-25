@@ -1319,8 +1319,8 @@ cite.title {
  =============================================================*/
 
 /* Loading disc that fills over and over, like an app being installed on iOS:
-   the images button while the manifest loads (DocumentPage), and the facsimile
-   icons waiting for it (PageBreak) */
+   the images button while the manifest loads (DocumentPage). The facsimile icons
+   waiting for it (PageBreak) draw the same disc in SVG, at the same pace */
 @property --loading-progress {
     syntax: '<angle>';
     inherits: false;
